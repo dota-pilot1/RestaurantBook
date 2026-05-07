@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   CreditCard,
   ImageIcon,
@@ -21,7 +21,9 @@ import type {
   CustomerSaleProduct,
   SaleProductType,
 } from "@/entities/customer-sale-product/model/types";
+import { orderApi } from "@/entities/order/api/orderApi";
 import { saleMenuCategoryApi } from "@/entities/sale-menu-category/api/saleMenuCategoryApi";
+import { toast, toastError } from "@/shared/lib/toast";
 
 type KioskOrderType = "dine-in" | "takeout";
 
@@ -127,6 +129,30 @@ export function KioskHome() {
     () => (orderType === "dine-in" ? "매장 식사" : "포장 주문"),
     [orderType]
   );
+
+  const createOrderMutation = useMutation({
+    mutationFn: orderApi.createCustomerOrder,
+    onSuccess: (order) => {
+      setCart({});
+      toast.success(`주문이 접수되었습니다. 주문번호: ${order.orderNo}`);
+    },
+    onError: (e) => {
+      toastError(e, "주문을 접수하지 못했습니다. 메뉴 상태를 확인한 뒤 다시 시도해주세요.");
+    },
+  });
+
+  const submitOrder = () => {
+    if (cartItems.length === 0 || createOrderMutation.isPending) return;
+
+    createOrderMutation.mutate({
+      orderType: customerOrderType,
+      items: cartItems.map((item) => ({
+        type: item.type,
+        id: item.id,
+        quantity: item.quantity,
+      })),
+    });
+  };
 
   const updateQuantity = (product: CustomerSaleProduct, delta: number) => {
     if (delta > 0 && product.status === "SOLD_OUT") return;
@@ -316,11 +342,12 @@ export function KioskHome() {
 
               <button
                 type="button"
-                disabled={totalQuantity === 0}
+                onClick={submitOrder}
+                disabled={totalQuantity === 0 || createOrderMutation.isPending}
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-primary text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <CreditCard className="h-4 w-4" />
-                결제하기
+                {createOrderMutation.isPending ? "접수 중" : "주문 접수하기"}
               </button>
 
               <div className="grid grid-cols-[88px_1fr] gap-3 rounded-md border border-dashed border-border bg-muted/30 p-3">

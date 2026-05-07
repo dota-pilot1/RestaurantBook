@@ -43,7 +43,10 @@ public enum ErrorCode {
     SALE_MENU_SET_EMPTY_ITEMS(HttpStatus.BAD_REQUEST, "SALE_MENU_SET_003", "세트 메뉴 구성 품목은 최소 1개 이상이어야 합니다."),
     SALE_MENU_SET_ITEM_INVALID(HttpStatus.BAD_REQUEST, "SALE_MENU_SET_004", "세트 메뉴 구성 품목이 올바르지 않습니다."),
     SALE_MENU_SET_NOT_ORDERABLE(HttpStatus.BAD_REQUEST, "SALE_MENU_SET_005", "주문할 수 없는 세트 메뉴입니다."),
-    ORDER_ITEM_NOT_ORDERABLE(HttpStatus.BAD_REQUEST, "ORDER_001", "주문할 수 없는 상품입니다."),
+    ORDER_EMPTY_ITEMS(HttpStatus.BAD_REQUEST, "ORDER_001", "주문 상품을 1개 이상 선택해주세요."),
+    ORDER_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "ORDER_002", "주문 상품을 찾을 수 없습니다."),
+    ORDER_ITEM_NOT_ORDERABLE(HttpStatus.BAD_REQUEST, "ORDER_003", "주문할 수 없는 상품입니다."),
+    ORDER_ITEM_INVALID_QUANTITY(HttpStatus.BAD_REQUEST, "ORDER_004", "주문 수량이 올바르지 않습니다."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_999", "서버 오류가 발생했습니다.");
 
     private final HttpStatus status;
