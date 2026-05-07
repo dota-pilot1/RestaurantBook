@@ -1,0 +1,73 @@
+server:
+  port: 4201
+
+spring:
+  application:
+    name: restaurant-book-server
+
+  config:
+    import: optional:classpath:application-local.yaml
+
+  datasource:
+    url: jdbc:postgresql://localhost:5435/restaurant_book
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: true
+
+jwt:
+  secret: ${JWT_SECRET:restaurant-book-dev-secret-key-must-be-at-least-32-bytes-long}
+  access-token-expiration-ms: 1800000
+  refresh-token-expiration-ms: 604800000
+  issuer: restaurant-book
+
+auth:
+  signup:
+    default-role: ${SIGNUP_DEFAULT_ROLE:ROLE_CUSTOMER}
+  email-verification:
+    code-ttl-seconds: 300
+    verified-token-ttl-seconds: 600
+    subject: RestaurantBook 이메일 인증코드
+    from: ${MAIL_FROM:}
+    log-only: ${AUTH_EMAIL_VERIFICATION_LOG_ONLY:true}
+    dev-bypass-code: ${AUTH_EMAIL_VERIFICATION_DEV_BYPASS_CODE:1234}
+
+aws:
+  s3:
+    access-key: ${AWS_ACCESS_KEY_ID:}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:}
+    bucket: ${AWS_S3_BUCKET_NAME:}
+    region: ${AWS_S3_REGION:ap-northeast-2}
+    prefix: ${AWS_S3_PREFIX:restaurant-book}
+    presign-expires-seconds: 300
+
+app:
+  seed:
+    test-accounts:
+      enabled: ${SEED_TEST_ACCOUNTS_ENABLED:true}
+      password: ${SEED_TEST_ACCOUNTS_PASSWORD:password123}
+      email-domain: ${SEED_TEST_ACCOUNTS_EMAIL_DOMAIN:restaurantbook.local}
+    sale-menu:
+      enabled: ${SEED_SALE_MENU_ENABLED:true}
+    sale-menu-set:
+      enabled: ${SEED_SALE_MENU_SET_ENABLED:true}

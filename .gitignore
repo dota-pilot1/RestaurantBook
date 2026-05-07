@@ -1,0 +1,69 @@
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local env files
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.local
+*.local.*
+
+# Logs / diagnostics
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+hs_err_pid*
+replay_pid*
+
+# Runtime data
+tmp/
+temp/
+storage/
+uploads/
+data/
+*.sqlite
+*.sqlite3
+*.db
+
+# Frontend
+restaurant-book-front/node_modules/
+restaurant-book-front/.next/
+restaurant-book-front/out/
+restaurant-book-front/build/
+restaurant-book-front/coverage/
+restaurant-book-front/.vercel/
+restaurant-book-front/*.tsbuildinfo
+restaurant-book-front/next-env.d.ts
+restaurant-book-front/.turbo/
+
+# Backend
+restaurant-book-server/.gradle/
+restaurant-book-server/build/
+restaurant-book-server/out/
+restaurant-book-server/bin/
+restaurant-book-server/src/main/resources/application-local.yaml
+restaurant-book-server/src/main/resources/application-*.local.yaml
+restaurant-book-server/src/main/resources/application-*.local.yml
+
+# Secrets / certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*secret*
+*credential*
+service-account*.json
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr

@@ -1,0 +1,15 @@
+export const common = {
+  brand: "RestaurantBook",
+  tagline: "面向韩餐厅的自助点餐与小菜商城平台。",
+  description: "将在这里扩展自助点餐、厨房接单、小菜销售和库存管理流程。",
+  loading: "处理中...",
+  confirm: "确认",
+  cancel: "取消",
+  save: "保存",
+  delete: "删除",
+  edit: "编辑",
+  close: "关闭",
+  search: "搜索",
+  language: "语言",
+  theme: "主题",
+};

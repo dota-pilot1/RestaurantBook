@@ -1,0 +1,15 @@
+export const common = {
+  brand: "RestaurantBook",
+  tagline: "한식당 키오스크 주문 관리와 반찬 쇼핑몰 운영 플랫폼입니다.",
+  description: "키오스크 주문, 주방 접수, 반찬 쇼핑몰, 재고 관리 기능을 확장해 나갑니다.",
+  loading: "처리 중...",
+  confirm: "확인",
+  cancel: "취소",
+  save: "저장",
+  delete: "삭제",
+  edit: "편집",
+  close: "닫기",
+  search: "검색",
+  language: "언어",
+  theme: "테마",
+};

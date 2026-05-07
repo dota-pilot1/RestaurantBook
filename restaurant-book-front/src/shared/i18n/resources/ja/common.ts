@@ -1,0 +1,15 @@
+export const common = {
+  brand: "RestaurantBook",
+  tagline: "韓国料理店向けキオスク注文管理とおかず販売プラットフォームです。",
+  description: "キオスク注文、厨房受付、おかず販売、在庫管理をここから拡張します。",
+  loading: "読み込み中...",
+  confirm: "確認",
+  cancel: "キャンセル",
+  save: "保存",
+  delete: "削除",
+  edit: "編集",
+  close: "閉じる",
+  search: "検索",
+  language: "言語",
+  theme: "テーマ",
+};

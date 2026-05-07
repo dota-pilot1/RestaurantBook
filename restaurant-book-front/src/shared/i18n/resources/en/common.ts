@@ -1,0 +1,15 @@
+export const common = {
+  brand: "RestaurantBook",
+  tagline: "Korean restaurant kiosk ordering and banchan commerce platform.",
+  description: "Kiosk orders, kitchen intake, banchan sales, and inventory workflows will be expanded here.",
+  loading: "Loading...",
+  confirm: "Confirm",
+  cancel: "Cancel",
+  save: "Save",
+  delete: "Delete",
+  edit: "Edit",
+  close: "Close",
+  search: "Search",
+  language: "Language",
+  theme: "Theme",
+};

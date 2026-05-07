@@ -1,0 +1,26 @@
+import type { SaleMenuCategorySummary } from "@/entities/sale-menu-category/model/types";
+
+export type SaleMenuStatus = "ACTIVE" | "SOLD_OUT" | "HIDDEN";
+
+export type SaleMenu = {
+  id: number;
+  category: SaleMenuCategorySummary | null;
+  name: string;
+  description: string | null;
+  price: number;
+  imageUrl: string | null;
+  status: SaleMenuStatus;
+  visible: boolean;
+  availableDineIn: boolean;
+  availableTakeout: boolean;
+  displayOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SaleMenuFilters = {
+  categoryId?: number;
+  status?: SaleMenuStatus;
+  visible?: boolean;
+  keyword?: string;
+};

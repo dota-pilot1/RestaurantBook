@@ -1,0 +1,20 @@
+export const nav = {
+  dashboard: "Dashboard",
+  admin: "Admin",
+  users: "Users",
+  roleManagement: "Roles",
+  rolePermissions: "Roles & Permissions",
+  siteSettings: "Store Settings",
+  menuManagement: "Navigation Menu Management",
+  profile: "My Profile",
+  logout: "Logout",
+  login: "Login",
+  register: "Sign Up",
+  roles: {
+    ROLE_ADMIN: "Admin",
+    ROLE_MANAGER: "Manager",
+    ROLE_KITCHEN: "Kitchen",
+    ROLE_STAFF: "Staff",
+    ROLE_CUSTOMER: "Customer",
+  },
+};
