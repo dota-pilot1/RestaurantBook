@@ -398,15 +398,33 @@ function MenuCard({
   onPlus: () => void;
 }) {
   const soldOut = product.status === "SOLD_OUT";
+  const isSet = product.type === "SALE_MENU_SET";
+  const visibleComponents = product.components.slice(0, 3);
+  const hiddenComponentCount = Math.max(0, product.components.length - visibleComponents.length);
   const componentSummary = product.components
     .map((component) => `${component.name} x${component.quantity}`)
-    .join(", ");
-  const description = product.type === "SALE_MENU_SET" && componentSummary
-    ? componentSummary
-    : product.description;
+    .join(" · ");
+  const addToCart = () => {
+    if (!soldOut) onPlus();
+  };
 
   return (
-    <article className="overflow-hidden rounded-lg border border-border bg-background">
+    <article
+      aria-label={`${product.name} 담기`}
+      className={`overflow-hidden rounded-lg border border-border bg-background transition-colors ${
+        soldOut
+          ? "opacity-75"
+          : "cursor-pointer hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      }`}
+      onClick={addToCart}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        addToCart();
+      }}
+      role="button"
+      tabIndex={soldOut ? -1 : 0}
+    >
       <div className="relative h-28 overflow-hidden bg-muted">
         {product.imageUrl ? (
           <div
@@ -427,18 +445,52 @@ function MenuCard({
         )}
       </div>
       <div className="space-y-4 p-4">
-        <div className="min-h-20">
+        <div className="min-h-28">
           <div className="flex items-start justify-between gap-2">
             <h3 className="min-w-0 text-lg font-bold tracking-tight">{product.name}</h3>
-            {product.type === "SALE_MENU_SET" && (
+            {isSet && (
               <span className="shrink-0 rounded-md bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground">
                 세트
               </span>
             )}
           </div>
-          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-            {description || "메뉴 설명이 없습니다."}
-          </p>
+          {isSet ? (
+            <div className="mt-2 space-y-2">
+              {product.description && (
+                <p className="line-clamp-1 text-sm text-muted-foreground">
+                  {product.description}
+                </p>
+              )}
+              {product.components.length > 0 ? (
+                <>
+                  <div className="flex flex-wrap gap-1.5">
+                    {visibleComponents.map((component) => (
+                      <span
+                        key={`${component.name}:${component.quantity}`}
+                        className="max-w-full rounded-md bg-muted px-2 py-1 text-xs font-semibold text-foreground"
+                      >
+                        {component.name} x{component.quantity}
+                      </span>
+                    ))}
+                    {hiddenComponentCount > 0 && (
+                      <span className="rounded-md bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground">
+                        +{hiddenComponentCount}
+                      </span>
+                    )}
+                  </div>
+                  <p className="line-clamp-1 text-xs text-muted-foreground">
+                    구성: {componentSummary}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">세트 구성 정보가 없습니다.</p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+              {product.description || "메뉴 설명이 없습니다."}
+            </p>
+          )}
         </div>
         <div className="flex items-center justify-between gap-3">
           <span className="text-xl font-bold">{formatPrice(product.price)}원</span>
@@ -480,7 +532,10 @@ function QuantityButton({
     <button
       type="button"
       aria-label={label}
-      onClick={onClick}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
       disabled={disabled}
       className={`flex h-9 w-9 items-center justify-center rounded-md border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
         primary
