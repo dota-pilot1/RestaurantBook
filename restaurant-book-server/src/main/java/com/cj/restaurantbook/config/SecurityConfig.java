@@ -83,6 +83,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/site-settings").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/navigation-menus").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/tables/active").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/sale-menu-categories").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/customer/sale-products").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/customer/orders/active").permitAll()
@@ -108,7 +109,13 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:4200"));
+        config.setAllowedOrigins(List.of(
+            "http://localhost:4200",
+            "http://localhost:3000",
+            "http://restaurant-book-front.s3-website.ap-northeast-2.amazonaws.com",
+            "https://smart-fnb-design.com",
+            "https://www.smart-fnb-design.com"
+        ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("Authorization"));

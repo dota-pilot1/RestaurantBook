@@ -31,6 +31,10 @@ export function TestLoginButtons({ nextPath, onError, tableName = "" }: Props) {
   if (!TEST_LOGIN_ENABLED) return null;
 
   const handleLogin = async (account: TestAccount) => {
+    if (account.roleCode === "ROLE_CUSTOMER" && !tableName.trim()) {
+      onError?.("고객 로그인은 테이블을 먼저 선택해주세요.");
+      return;
+    }
     setPendingEmail(account.email);
     onError?.("");
     try {

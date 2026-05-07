@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AlertCircle, LogIn } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -17,6 +18,7 @@ import { PasswordInput } from "@/shared/ui/PasswordInput";
 import { getPostLoginPath } from "@/entities/user/lib/roleRoutes";
 import { TestLoginButtons } from "@/features/auth/test-login/TestLoginButtons";
 import { tableSessionStorage } from "@/shared/lib/tableSessionStorage";
+import { restaurantTableApi } from "@/entities/restaurant-table/api/restaurantTableApi";
 
 type LoginFormProps = {
   nextPath?: string;
@@ -27,6 +29,11 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const { t } = useTranslation("auth");
   const [formError, setFormError] = useState<string | null>(null);
   const [tableName, setTableName] = useState("");
+
+  const { data: tables = [] } = useQuery({
+    queryKey: ["restaurant-tables-active"],
+    queryFn: restaurantTableApi.listActive,
+  });
 
   useEffect(() => {
     setTableName(tableSessionStorage.getTableName());
@@ -50,6 +57,10 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     setFormError(null);
     try {
       const user = await authActions.login(values.email, values.password);
+      if (user.role.code === "ROLE_CUSTOMER" && !tableName.trim()) {
+        setFormError("고객 로그인은 테이블을 먼저 선택해주세요.");
+        return;
+      }
       tableSessionStorage.setTableName(tableName);
       toast.success(t("loginSuccess"));
       router.replace(getPostLoginPath(user, nextPath));
@@ -70,17 +81,31 @@ export function LoginForm({ nextPath }: LoginFormProps) {
       <TestLoginButtons nextPath={nextPath} onError={setFormError} tableName={tableName} />
 
       <FormField
-        label="테이블명"
+        label="테이블 선택"
         htmlFor="login-table-name"
-        hint="이 브라우저에서 사용할 테이블명을 저장합니다."
+        hint="이 브라우저에서 사용할 테이블을 선택합니다."
       >
-        <TextInput
-          id="login-table-name"
-          autoComplete="off"
-          placeholder="예: 3번 테이블"
-          value={tableName}
-          onChange={(event) => setTableName(event.target.value)}
-        />
+        {tables.length > 0 ? (
+          <select
+            id="login-table-name"
+            value={tableName}
+            onChange={(e) => setTableName(e.target.value)}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">테이블을 선택하세요</option>
+            {tables.map((t) => (
+              <option key={t.id} value={t.name}>{t.name}</option>
+            ))}
+          </select>
+        ) : (
+          <TextInput
+            id="login-table-name"
+            autoComplete="off"
+            placeholder="예: 3번 테이블"
+            value={tableName}
+            onChange={(event) => setTableName(event.target.value)}
+          />
+        )}
       </FormField>
 
       {formError && (

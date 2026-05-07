@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Store,
+  TableProperties,
   Users,
   Utensils,
 } from "lucide-react";
@@ -53,6 +54,7 @@ const adminSections = [
       { href: "/site-settings", label: "매장 설정", icon: Store },
       { href: "/screen-settings", label: "화면 설정", icon: MonitorCog },
       { href: "/navigation-menus", label: "내비게이션 메뉴", icon: Menu },
+      { href: "/tables", label: "테이블 관리", icon: TableProperties },
     ],
   },
 ];

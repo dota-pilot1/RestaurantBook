@@ -57,7 +57,8 @@ public class NavigationMenuSeeder implements ApplicationRunner {
                 new NavigationMenuDef("ADMIN_SETTINGS",        "ADMIN", "설정",          null,                   null,                "Settings",        RoleSeeder.ROLE_ADMIN,   3),
                 new NavigationMenuDef("ADMIN_SITE_SETTINGS",   "ADMIN_SETTINGS", "매장 설정", "nav.siteSettings", "/site-settings",    "Store",           RoleSeeder.ROLE_ADMIN,   0),
                 new NavigationMenuDef("ADMIN_SCREEN_SETTINGS", "ADMIN_SETTINGS", "화면 설정", null,                "/screen-settings",  "MonitorCog",      RoleSeeder.ROLE_ADMIN,   1),
-                new NavigationMenuDef("ADMIN_NAVIGATION_MENU_MANAGEMENT", "ADMIN_SETTINGS", "내비게이션 메뉴 관리", "nav.menuManagement", "/navigation-menus", "Menu",       RoleSeeder.ROLE_ADMIN,   2)
+                new NavigationMenuDef("ADMIN_NAVIGATION_MENU_MANAGEMENT", "ADMIN_SETTINGS", "내비게이션 메뉴 관리", "nav.menuManagement", "/navigation-menus", "Menu",           RoleSeeder.ROLE_ADMIN,   2),
+                new NavigationMenuDef("ADMIN_TABLE_MANAGEMENT",          "ADMIN_SETTINGS", "테이블 관리",          null,                  "/tables",           "TableProperties", RoleSeeder.ROLE_ADMIN,   3)
         );
 
         for (NavigationMenuDef def : defs) {

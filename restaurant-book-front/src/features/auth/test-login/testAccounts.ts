@@ -11,8 +11,8 @@ const password =
   process.env.NEXT_PUBLIC_TEST_ACCOUNT_PASSWORD ?? "password123";
 
 export const TEST_LOGIN_ENABLED =
-  process.env.NODE_ENV !== "production" &&
-  process.env.NEXT_PUBLIC_ENABLE_TEST_LOGIN !== "false";
+  process.env.NEXT_PUBLIC_ENABLE_TEST_LOGIN === "true" ||
+  process.env.NODE_ENV !== "production";
 
 export const TEST_ACCOUNTS: TestAccount[] = [
   { roleCode: "ROLE_ADMIN", label: "관리자", email: `admin@${emailDomain}`, password },
