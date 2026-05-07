@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -16,6 +16,7 @@ import { TextInput } from "@/shared/ui/TextInput";
 import { PasswordInput } from "@/shared/ui/PasswordInput";
 import { getPostLoginPath } from "@/entities/user/lib/roleRoutes";
 import { TestLoginButtons } from "@/features/auth/test-login/TestLoginButtons";
+import { tableSessionStorage } from "@/shared/lib/tableSessionStorage";
 
 type LoginFormProps = {
   nextPath?: string;
@@ -25,6 +26,11 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const router = useRouter();
   const { t } = useTranslation("auth");
   const [formError, setFormError] = useState<string | null>(null);
+  const [tableName, setTableName] = useState("");
+
+  useEffect(() => {
+    setTableName(tableSessionStorage.getTableName());
+  }, []);
 
   const {
     register,
@@ -44,6 +50,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     setFormError(null);
     try {
       const user = await authActions.login(values.email, values.password);
+      tableSessionStorage.setTableName(tableName);
       toast.success(t("loginSuccess"));
       router.replace(getPostLoginPath(user, nextPath));
     } catch (e) {
@@ -60,7 +67,21 @@ export function LoginForm({ nextPath }: LoginFormProps) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
-      <TestLoginButtons nextPath={nextPath} onError={setFormError} />
+      <TestLoginButtons nextPath={nextPath} onError={setFormError} tableName={tableName} />
+
+      <FormField
+        label="테이블명"
+        htmlFor="login-table-name"
+        hint="이 브라우저에서 사용할 테이블명을 저장합니다."
+      >
+        <TextInput
+          id="login-table-name"
+          autoComplete="off"
+          placeholder="예: 3번 테이블"
+          value={tableName}
+          onChange={(event) => setTableName(event.target.value)}
+        />
+      </FormField>
 
       {formError && (
         <div

@@ -8,6 +8,7 @@ type Props = {
   open: boolean;
   title: string;
   description?: string;
+  children?: React.ReactNode;
   confirmText?: string;
   variant?: Variant;
   onConfirm: () => void;
@@ -35,6 +36,7 @@ export function AlertDialog({
   open,
   title,
   description,
+  children,
   confirmText = "확인",
   variant = "warning",
   onConfirm,
@@ -65,7 +67,7 @@ export function AlertDialog({
       aria-labelledby="alert-dialog-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
     >
-      <div className="w-full max-w-sm rounded-lg border border-border bg-background p-6 shadow-lg">
+      <div className="w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-lg">
         <div className="flex items-start gap-3">
           <span className={`text-2xl leading-none mt-0.5 ${styles.iconClass}`}>{styles.icon}</span>
           <div className="flex-1">
@@ -77,6 +79,7 @@ export function AlertDialog({
                 {description}
               </p>
             )}
+            {children && <div className="mt-4">{children}</div>}
           </div>
         </div>
         <div className="mt-6 flex justify-end">

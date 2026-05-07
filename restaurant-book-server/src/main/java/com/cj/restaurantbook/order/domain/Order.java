@@ -33,6 +33,9 @@ public class Order {
     @Column(nullable = false, unique = true, length = 40)
     private String orderNo;
 
+    @Column(length = 80)
+    private String tableName;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private OrderType orderType;
@@ -55,9 +58,10 @@ public class Order {
     @Column(nullable = false)
     private Instant updatedAt;
 
-    public static Order create(String orderNo, OrderType orderType, List<OrderItem> items) {
+    public static Order create(String orderNo, String tableName, OrderType orderType, List<OrderItem> items) {
         Order order = new Order();
         order.orderNo = orderNo;
+        order.tableName = tableName;
         order.orderType = orderType;
         order.status = OrderStatus.RECEIVED;
         items.forEach(order::addItem);
@@ -74,5 +78,13 @@ public class Order {
         this.totalAmount = items.stream()
                 .mapToInt(OrderItem::getLineTotal)
                 .sum();
+    }
+
+    public boolean canCancelByCustomer() {
+        return this.status == OrderStatus.RECEIVED;
+    }
+
+    public void cancel() {
+        this.status = OrderStatus.CANCELED;
     }
 }

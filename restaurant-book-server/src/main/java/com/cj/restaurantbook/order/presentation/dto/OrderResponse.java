@@ -11,6 +11,7 @@ import java.util.List;
 public record OrderResponse(
         Long id,
         String orderNo,
+        String tableName,
         OrderType orderType,
         OrderStatus status,
         int totalAmount,
@@ -21,6 +22,7 @@ public record OrderResponse(
         return new OrderResponse(
                 order.getId(),
                 order.getOrderNo(),
+                order.getTableName(),
                 order.getOrderType(),
                 order.getStatus(),
                 order.getTotalAmount(),

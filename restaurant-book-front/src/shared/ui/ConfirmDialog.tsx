@@ -8,6 +8,7 @@ type Props = {
   open: boolean;
   title: string;
   description?: string;
+  children?: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
   variant?: Variant;
@@ -20,6 +21,7 @@ export function ConfirmDialog({
   open,
   title,
   description,
+  children,
   confirmText = "확인",
   cancelText = "취소",
   variant = "default",
@@ -69,6 +71,7 @@ export function ConfirmDialog({
             {description}
           </p>
         )}
+        {children && <div className="mt-4">{children}</div>}
         <div className="mt-6 flex justify-end gap-2">
           <button
             type="button"

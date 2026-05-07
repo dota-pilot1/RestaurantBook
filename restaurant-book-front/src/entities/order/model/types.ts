@@ -12,6 +12,7 @@ export type CreateOrderItem = {
 };
 
 export type CreateOrderBody = {
+  tableName?: string | null;
   orderType: CustomerOrderType;
   items: CreateOrderItem[];
 };
@@ -36,6 +37,7 @@ export type OrderItem = {
 export type Order = {
   id: number;
   orderNo: string;
+  tableName: string | null;
   orderType: CustomerOrderType;
   status: OrderStatus;
   totalAmount: number;

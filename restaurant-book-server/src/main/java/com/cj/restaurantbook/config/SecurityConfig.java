@@ -85,7 +85,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/navigation-menus").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/sale-menu-categories").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/customer/sale-products").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/customer/orders/active").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/customer/orders").permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/api/customer/orders/*/cancel").permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",

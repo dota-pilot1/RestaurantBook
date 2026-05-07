@@ -6,6 +6,7 @@ import com.cj.restaurantbook.order.domain.Order;
 import com.cj.restaurantbook.order.domain.OrderItem;
 import com.cj.restaurantbook.order.domain.OrderItemType;
 import com.cj.restaurantbook.order.domain.OrderType;
+import com.cj.restaurantbook.order.domain.OrderStatus;
 import com.cj.restaurantbook.order.infrastructure.OrderRepository;
 import com.cj.restaurantbook.order.presentation.dto.CreateOrderItemRequest;
 import com.cj.restaurantbook.order.presentation.dto.CreateOrderRequest;
@@ -49,9 +50,41 @@ public class OrderService {
             orderItems.add(createOrderItem(request.orderType(), key, quantity, displayOrder++));
         }
 
-        Order order = Order.create(generateOrderNo(), request.orderType(), orderItems);
+        Order order = Order.create(generateOrderNo(), normalizeTableName(request.tableName()), request.orderType(), orderItems);
         Order saved = orderRepository.saveAndFlush(order);
         return OrderResponse.from(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderResponse> findActiveCustomerOrders(String tableName) {
+        String normalizedTableName = normalizeTableName(tableName);
+        if (normalizedTableName == null) {
+            return List.of();
+        }
+
+        return orderRepository.findByTableNameAndStatusInOrderByCreatedAtAscIdAsc(
+                        normalizedTableName,
+                        List.of(OrderStatus.RECEIVED, OrderStatus.COOKING, OrderStatus.READY)
+                ).stream()
+                .map(OrderResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public OrderResponse cancelCustomerOrder(Long orderId, String tableName) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
+
+        String normalizedTableName = normalizeTableName(tableName);
+        if (normalizedTableName == null || !normalizedTableName.equals(order.getTableName())) {
+            throw new BusinessException(ErrorCode.ORDER_TABLE_MISMATCH);
+        }
+        if (!order.canCancelByCustomer()) {
+            throw new BusinessException(ErrorCode.ORDER_CANCEL_NOT_ALLOWED);
+        }
+
+        order.cancel();
+        return OrderResponse.from(order);
     }
 
     private Map<OrderItemKey, Integer> normalizeItems(List<CreateOrderItemRequest> items) {
@@ -126,6 +159,18 @@ public class OrderService {
             }
         }
         throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+    }
+
+    private String normalizeTableName(String tableName) {
+        if (tableName == null) {
+            return null;
+        }
+
+        String normalized = tableName.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        return normalized.length() > 80 ? normalized.substring(0, 80) : normalized;
     }
 
     private record OrderItemKey(OrderItemType type, Long id) {

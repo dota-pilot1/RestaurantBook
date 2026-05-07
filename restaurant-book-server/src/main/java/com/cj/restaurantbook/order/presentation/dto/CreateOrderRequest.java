@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 
 public record CreateOrderRequest(
+        String tableName,
         @NotNull OrderType orderType,
         @NotEmpty List<@NotNull @Valid CreateOrderItemRequest> items
 ) {

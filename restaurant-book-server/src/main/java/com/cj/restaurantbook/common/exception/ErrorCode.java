@@ -47,6 +47,9 @@ public enum ErrorCode {
     ORDER_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "ORDER_002", "주문 상품을 찾을 수 없습니다."),
     ORDER_ITEM_NOT_ORDERABLE(HttpStatus.BAD_REQUEST, "ORDER_003", "주문할 수 없는 상품입니다."),
     ORDER_ITEM_INVALID_QUANTITY(HttpStatus.BAD_REQUEST, "ORDER_004", "주문 수량이 올바르지 않습니다."),
+    ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "ORDER_005", "주문을 찾을 수 없습니다."),
+    ORDER_CANCEL_NOT_ALLOWED(HttpStatus.CONFLICT, "ORDER_006", "주문 접수 대기 상태에서만 취소할 수 있습니다."),
+    ORDER_TABLE_MISMATCH(HttpStatus.FORBIDDEN, "ORDER_007", "테이블 정보가 일치하지 않습니다."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_999", "서버 오류가 발생했습니다.");
 
     private final HttpStatus status;

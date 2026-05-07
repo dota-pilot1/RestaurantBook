@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   LogIn,
   LogOut,
+  MapPin,
   Menu,
   MonitorCog,
   Package,
@@ -33,6 +34,7 @@ import { RoleBadge } from "@/features/user-management/RoleBadge";
 import { NavLink } from "@/shared/ui/NavLink";
 import { ThemeSwitcher } from "@/shared/ui/theme/ThemeSwitcher";
 import { LanguageSelect } from "@/shared/ui/LanguageSelect";
+import { tableSessionStorage } from "@/shared/lib/tableSessionStorage";
 
 function buildTree(flat: NavigationMenuRecord[], userRole: string | null): NavigationMenuItem[] {
   const visible = flat.filter(
@@ -647,6 +649,13 @@ export function Header() {
   const { t } = useTranslation("nav");
   const { status, user } = useAuth();
   const router = useRouter();
+  const [tableName, setTableName] = useState("");
+
+  useEffect(() => {
+    const syncTableName = () => setTableName(tableSessionStorage.getTableName());
+    syncTableName();
+    return tableSessionStorage.subscribe(syncTableName);
+  }, []);
 
   const userRole = user?.role?.code ?? null;
 
@@ -684,6 +693,12 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          {status === "authenticated" && tableName && (
+            <span className="inline-flex h-9 max-w-[180px] items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 text-sm font-semibold text-foreground">
+              <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="truncate">{tableName}</span>
+            </span>
+          )}
           <LanguageSelect />
           <ThemeSwitcher />
           {status === "authenticated" ? (

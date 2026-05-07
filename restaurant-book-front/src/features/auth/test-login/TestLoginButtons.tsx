@@ -7,11 +7,13 @@ import { toast } from "sonner";
 import { authActions } from "@/entities/user/model/authStore";
 import { getApiError } from "@/shared/api/errors";
 import { getPostLoginPath } from "@/entities/user/lib/roleRoutes";
+import { tableSessionStorage } from "@/shared/lib/tableSessionStorage";
 import { TEST_ACCOUNTS, TEST_LOGIN_ENABLED, type TestAccount } from "./testAccounts";
 
 type Props = {
   nextPath?: string;
   onError?: (message: string) => void;
+  tableName?: string;
 };
 
 const ROLE_BUTTON_STYLES: Record<string, string> = {
@@ -22,7 +24,7 @@ const ROLE_BUTTON_STYLES: Record<string, string> = {
   ROLE_CUSTOMER: "border-slate-500/30 bg-slate-500/10 text-slate-600 hover:bg-slate-500/15",
 };
 
-export function TestLoginButtons({ nextPath, onError }: Props) {
+export function TestLoginButtons({ nextPath, onError, tableName = "" }: Props) {
   const router = useRouter();
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
@@ -33,6 +35,7 @@ export function TestLoginButtons({ nextPath, onError }: Props) {
     onError?.("");
     try {
       const user = await authActions.login(account.email, account.password);
+      tableSessionStorage.setTableName(tableName);
       toast.success(`${account.label} 계정으로 로그인되었습니다.`);
       router.replace(getPostLoginPath(user, nextPath));
     } catch (e) {
