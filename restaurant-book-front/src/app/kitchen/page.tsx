@@ -1,7 +1,7 @@
 "use client";
 
-import { RoleHome } from "@/widgets/role-home/RoleHome";
+import { KitchenOrderBoard } from "@/features/kitchen-order-board/KitchenOrderBoard";
 
 export default function KitchenPage() {
-  return <RoleHome roleCode="ROLE_KITCHEN" />;
+  return <KitchenOrderBoard />;
 }

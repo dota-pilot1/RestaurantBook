@@ -1,7 +1,7 @@
 "use client";
 
-import { RoleHome } from "@/widgets/role-home/RoleHome";
+import { StaffReadyOrders } from "@/features/staff-ready-orders/StaffReadyOrders";
 
 export default function StaffPage() {
-  return <RoleHome roleCode="ROLE_STAFF" />;
+  return <StaffReadyOrders />;
 }

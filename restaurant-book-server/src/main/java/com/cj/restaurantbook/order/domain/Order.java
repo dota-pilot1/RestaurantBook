@@ -47,6 +47,9 @@ public class Order {
     @Column(nullable = false)
     private int totalAmount;
 
+    @Column(length = 500)
+    private String cancelMessage;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private final List<OrderItem> items = new ArrayList<>();
 
@@ -84,7 +87,50 @@ public class Order {
         return this.status == OrderStatus.RECEIVED;
     }
 
-    public void cancel() {
+    public boolean canCancelByOperations() {
+        return this.status != OrderStatus.CANCELED && this.status != OrderStatus.COMPLETED;
+    }
+
+    public void cancel(String cancelMessage) {
         this.status = OrderStatus.CANCELED;
+        this.cancelMessage = normalizeCancelMessage(cancelMessage);
+    }
+
+    public void clearCancelMessage() {
+        this.cancelMessage = null;
+    }
+
+    public void accept() {
+        transition(OrderStatus.RECEIVED, OrderStatus.ACCEPTED);
+    }
+
+    public void startCooking() {
+        transition(OrderStatus.ACCEPTED, OrderStatus.COOKING);
+    }
+
+    public void markReady() {
+        transition(OrderStatus.COOKING, OrderStatus.READY);
+    }
+
+    public void complete() {
+        transition(OrderStatus.READY, OrderStatus.COMPLETED);
+    }
+
+    private void transition(OrderStatus expected, OrderStatus next) {
+        if (this.status != expected) {
+            throw new IllegalStateException("Invalid order status transition: " + this.status + " -> " + next);
+        }
+        this.status = next;
+    }
+
+    private String normalizeCancelMessage(String message) {
+        if (message == null) {
+            return null;
+        }
+        String normalized = message.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        return normalized.length() > 500 ? normalized.substring(0, 500) : normalized;
     }
 }

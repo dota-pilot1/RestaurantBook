@@ -21,6 +21,7 @@ import type {
   SaleProductType,
 } from "@/entities/customer-sale-product/model/types";
 import { orderApi } from "@/entities/order/api/orderApi";
+import { useCustomerOrdersWebSocket } from "@/entities/order/api/orderRealtime";
 import type { Order } from "@/entities/order/model/types";
 import { saleMenuCategoryApi } from "@/entities/sale-menu-category/api/saleMenuCategoryApi";
 import { toast, toastError } from "@/shared/lib/toast";
@@ -49,20 +50,70 @@ type CartItem = {
   }[];
 };
 
+type CancelNotice = {
+  key: string;
+  orderId: number | null;
+  orderNo: string | null;
+  message: string;
+  receivedAt: Date;
+};
+
 const SET_TAB: KioskTab = { type: "SET", label: "세트" };
 
 const formatPrice = (value: number) => value.toLocaleString("ko-KR");
 
+const formatTime = (value: string) =>
+  new Date(value).toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+const playCancelAlertSound = () => {
+  if (typeof window === "undefined") return;
+  const audioWindow = window as Window & {
+    AudioContext?: typeof AudioContext;
+    webkitAudioContext?: typeof AudioContext;
+  };
+  const AudioContextClass = audioWindow.AudioContext || audioWindow.webkitAudioContext;
+  if (!AudioContextClass) return;
+
+  try {
+    const audioContext = new AudioContextClass();
+    const playTone = (startTime: number, frequency: number) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, startTime);
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.14, startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.22);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(startTime);
+      oscillator.stop(startTime + 0.24);
+    };
+
+    const now = audioContext.currentTime;
+    playTone(now, 740);
+    playTone(now + 0.28, 520);
+    window.setTimeout(() => void audioContext.close(), 900);
+  } catch {
+    // Browser audio can be blocked until the kiosk has user activation.
+  }
+};
+
 const orderStatusLabel: Record<Order["status"], string> = {
   RECEIVED: "주문 접수 대기",
+  ACCEPTED: "주문 접수 완료",
   COOKING: "조리 중",
-  READY: "준비 완료",
-  COMPLETED: "제공 완료",
+  READY: "조리 완료/결제 대기",
+  COMPLETED: "결제 완료",
   CANCELED: "취소",
 };
 
 const orderStatusBadgeClass: Record<Order["status"], string> = {
   RECEIVED: "border-amber-500/30 bg-amber-50 text-amber-700",
+  ACCEPTED: "border-sky-500/30 bg-sky-50 text-sky-700",
   COOKING: "border-blue-500/30 bg-blue-50 text-blue-700",
   READY: "border-emerald-500/30 bg-emerald-50 text-emerald-700",
   COMPLETED: "border-slate-500/30 bg-slate-50 text-slate-700",
@@ -71,6 +122,7 @@ const orderStatusBadgeClass: Record<Order["status"], string> = {
 
 const orderStatusCardClass: Record<Order["status"], string> = {
   RECEIVED: "border-amber-300 bg-background shadow-[inset_4px_0_0_rgb(245_158_11)]",
+  ACCEPTED: "border-sky-300 bg-background shadow-[inset_4px_0_0_rgb(14_165_233)]",
   COOKING: "border-blue-300 bg-background shadow-[inset_4px_0_0_rgb(59_130_246)]",
   READY: "border-emerald-300 bg-background shadow-[inset_4px_0_0_rgb(16_185_129)]",
   COMPLETED: "border-slate-300 bg-background shadow-[inset_4px_0_0_rgb(100_116_139)]",
@@ -99,6 +151,10 @@ export function KioskHome() {
   const [cart, setCart] = useState<Record<CartItemKey, CartItem>>({});
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
   const [canceledOrder, setCanceledOrder] = useState<Order | null>(null);
+  const [cancelNotices, setCancelNotices] = useState<CancelNotice[]>([]);
+  const [dismissedCanceledOrderIds, setDismissedCanceledOrderIds] = useState<Set<number>>(() => new Set());
+  const [cancelNoticesOpen, setCancelNoticesOpen] = useState(false);
+  const [activeCancelNotice, setActiveCancelNotice] = useState<CancelNotice | null>(null);
   const [orderConfirmOpen, setOrderConfirmOpen] = useState(false);
   const [tableName, setTableName] = useState("");
 
@@ -109,6 +165,35 @@ export function KioskHome() {
     syncTableName();
     return tableSessionStorage.subscribe(syncTableName);
   }, []);
+  useCustomerOrdersWebSocket(tableName, tableName.trim().length > 0, (payload) => {
+    const message = payload.cancelMessage?.trim();
+    if (payload.reason !== "CANCELED" || !message) {
+      return;
+    }
+    const currentOrders =
+      queryClient.getQueryData<Order[]>(["customer-active-orders", tableName]) ?? [];
+    const canceled = currentOrders.find((order) => order.id === payload.orderId) ?? null;
+    const notice: CancelNotice = {
+      key: `${payload.orderId ?? "unknown"}-${Date.now()}`,
+      orderId: payload.orderId ?? null,
+      orderNo: canceled?.orderNo ?? null,
+      message,
+      receivedAt: new Date(),
+    };
+    setCancelNotices((current) => [
+      notice,
+      ...current,
+    ].slice(0, 10));
+    setActiveCancelNotice(notice);
+    playCancelAlertSound();
+    toast.error("주문 취소 안내가 도착했습니다.");
+  });
+
+  useEffect(() => {
+    if (!activeCancelNotice) return;
+    const timer = window.setTimeout(() => setActiveCancelNotice(null), 10000);
+    return () => window.clearTimeout(timer);
+  }, [activeCancelNotice]);
 
   const {
     data: categories = [],
@@ -176,9 +261,52 @@ export function KioskHome() {
     refetchInterval: 5000,
   });
 
+  const {
+    data: canceledOrders = [],
+  } = useQuery({
+    queryKey: ["customer-canceled-orders", tableName],
+    queryFn: () => orderApi.getCanceledCustomerOrders(tableName),
+    enabled: tableName.trim().length > 0,
+    refetchInterval: 5000,
+  });
+
   const cartItems = useMemo(
     () => Object.values(cart).sort((a, b) => a.name.localeCompare(b.name, "ko-KR")),
     [cart]
+  );
+  const visibleCancelNotices = useMemo(() => {
+    const seen = new Set<number>();
+    const fromEvents = cancelNotices.filter((notice) => {
+      if (notice.orderId == null) {
+        return true;
+      }
+      if (dismissedCanceledOrderIds.has(notice.orderId)) {
+        return false;
+      }
+      seen.add(notice.orderId);
+      return true;
+    });
+    const fromOrders = canceledOrders
+      .filter((order) => order.status === "CANCELED" && order.cancelMessage && !dismissedCanceledOrderIds.has(order.id))
+      .filter((order) => {
+        if (seen.has(order.id)) {
+          return false;
+        }
+        seen.add(order.id);
+        return true;
+      })
+      .map((order): CancelNotice => ({
+        key: `order-${order.id}`,
+        orderId: order.id,
+        orderNo: order.orderNo,
+        message: order.cancelMessage ?? "주문이 취소되었습니다.",
+        receivedAt: new Date(order.updatedAt),
+      }));
+    return [...fromEvents, ...fromOrders].slice(0, 10);
+  }, [cancelNotices, canceledOrders, dismissedCanceledOrderIds]);
+  const billableOrders = useMemo(
+    () => acceptedOrders.filter((order) => order.status !== "CANCELED"),
+    [acceptedOrders]
   );
 
   const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -186,12 +314,12 @@ export function KioskHome() {
     (sum, item) => sum + item.price * item.quantity,
     0
   );
-  const acceptedQuantity = acceptedOrders.reduce(
+  const acceptedQuantity = billableOrders.reduce(
     (orderSum, order) =>
       orderSum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
     0
   );
-  const acceptedTotalPrice = acceptedOrders.reduce(
+  const acceptedTotalPrice = billableOrders.reduce(
     (sum, order) => sum + order.totalAmount,
     0
   );
@@ -225,16 +353,46 @@ export function KioskHome() {
       }
       setCanceledOrder(order);
       queryClient.invalidateQueries({ queryKey: ["customer-active-orders", tableName] });
+      queryClient.invalidateQueries({ queryKey: ["customer-canceled-orders", tableName] });
     },
     onError: (e) => {
       toastError(e, "주문을 취소하지 못했습니다. 직원에게 문의해주세요.");
     },
   });
 
+  const acknowledgeCanceledOrdersMutation = useMutation({
+    mutationFn: () => orderApi.acknowledgeCustomerCanceledOrders(tableName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customer-canceled-orders", tableName] });
+      setCancelNotices([]);
+      setActiveCancelNotice(null);
+    },
+    onError: (e) => {
+      toastError(e, "취소 안내 확인 처리를 하지 못했습니다.");
+    },
+  });
+
+  const acknowledgeVisibleCancelNotices = () => {
+    setDismissedCanceledOrderIds((current) => {
+      const next = new Set(current);
+      visibleCancelNotices.forEach((notice) => {
+        if (notice.orderId != null) {
+          next.add(notice.orderId);
+        }
+      });
+      return next;
+    });
+    setCancelNotices([]);
+    setCancelNoticesOpen(false);
+    if (tableName.trim()) {
+      acknowledgeCanceledOrdersMutation.mutate();
+    }
+  };
+
   const requestSubmitOrder = () => {
     if (createOrderMutation.isPending) return;
     if (cartItems.length === 0) {
-      if (acceptedOrders.length > 0) {
+        if (billableOrders.length > 0) {
         document.getElementById("kiosk-menu-list")?.scrollIntoView({
           behavior: "smooth",
           block: "start",
@@ -288,6 +446,35 @@ export function KioskHome() {
         };
       }
 
+      return next;
+    });
+  };
+
+  const toggleProductSelection = (product: CustomerSaleProduct) => {
+    if (completedOrder) setCompletedOrder(null);
+
+    setCart((current) => {
+      const key = toCartKey(product.type, product.id);
+      const next = { ...current };
+
+      if (current[key]) {
+        delete next[key];
+        return next;
+      }
+
+      if (product.status === "SOLD_OUT") {
+        return current;
+      }
+
+      next[key] = {
+        key,
+        type: product.type,
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: 1,
+        components: product.components,
+      };
       return next;
     });
   };
@@ -386,6 +573,7 @@ export function KioskHome() {
                     quantity={cart[key]?.quantity ?? 0}
                     onMinus={() => updateQuantity(product, -1)}
                     onPlus={() => updateQuantity(product, 1)}
+                    onToggle={() => toggleProductSelection(product)}
                   />
                 );
               })}
@@ -400,9 +588,20 @@ export function KioskHome() {
                 <ShoppingBag className="h-4 w-4 text-muted-foreground" />
                 <h2 className="text-sm font-semibold">주문 내역</h2>
               </div>
-              <span className="rounded-md bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground">
-                {orderTypeLabel}
-              </span>
+              <div className="flex items-center gap-2">
+                {visibleCancelNotices.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setCancelNoticesOpen(true)}
+                    className="rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs font-bold text-red-700 hover:bg-red-100"
+                  >
+                    취소({visibleCancelNotices.length})
+                  </button>
+                ) : null}
+                <span className="rounded-md bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground">
+                  {orderTypeLabel}
+                </span>
+              </div>
             </div>
 
             <>
@@ -424,7 +623,7 @@ export function KioskHome() {
                     <section className="bg-white">
                       <div className="flex items-center justify-between bg-zinc-50 px-4 py-3">
                         <p className="text-sm font-bold">
-                          {acceptedOrders.length > 0 ? "추가 주문" : "선택한 메뉴"}
+                          {billableOrders.length > 0 ? "추가 주문" : "선택한 메뉴"}
                         </p>
                         <span className="rounded-md bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground">
                           {totalQuantity}개
@@ -500,15 +699,15 @@ export function KioskHome() {
                   <button
                     type="button"
                     onClick={requestSubmitOrder}
-                    disabled={(totalQuantity === 0 && acceptedOrders.length === 0) || createOrderMutation.isPending || !tableName.trim()}
+                    disabled={(totalQuantity === 0 && billableOrders.length === 0) || createOrderMutation.isPending || !tableName.trim()}
                     className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-primary text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <ReceiptText className="h-4 w-4" />
                     {createOrderMutation.isPending
                       ? "접수 중"
-                      : acceptedOrders.length > 0 && totalQuantity === 0
+                      : billableOrders.length > 0 && totalQuantity === 0
                         ? "추가 메뉴를 선택해주세요"
-                        : acceptedOrders.length > 0
+                        : billableOrders.length > 0
                         ? "추가 주문 접수하기"
                         : "주문 접수하기"}
                   </button>
@@ -543,7 +742,7 @@ export function KioskHome() {
       </div>
       <ConfirmDialog
         open={orderConfirmOpen}
-        title={acceptedOrders.length > 0 ? "추가 주문을 접수할까요?" : "주문을 접수할까요?"}
+        title={billableOrders.length > 0 ? "추가 주문을 접수할까요?" : "주문을 접수할까요?"}
         description="접수 후 주방에 주문 요청이 전달됩니다."
         confirmText={createOrderMutation.isPending ? "접수 중" : "주문 접수"}
         cancelText="다시 확인"
@@ -575,11 +774,77 @@ export function KioskHome() {
         title="주문이 취소되었습니다"
         tone="info"
         confirmText="확인"
-        onConfirm={() => setCanceledOrder(null)}
+        onConfirm={() => {
+          setCanceledOrder(null);
+          if (tableName.trim()) {
+            acknowledgeCanceledOrdersMutation.mutate();
+          }
+        }}
       >
         {canceledOrder && (
           <CanceledOrderSummary order={canceledOrder} tableName={tableName} />
         )}
+      </NoticeDialog>
+      <NoticeDialog
+        open={cancelNoticesOpen}
+        title="취소 안내"
+        tone="error"
+        confirmText="확인"
+        onConfirm={acknowledgeVisibleCancelNotices}
+      >
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-foreground">
+            취소된 주문입니다.
+          </p>
+          <div className="max-h-72 space-y-2 overflow-y-auto">
+            {visibleCancelNotices.map((notice) => (
+              <div
+                key={notice.key}
+                className="rounded-md border border-red-200 bg-red-50 px-3 py-2"
+              >
+                <div className="flex items-center justify-between gap-2 text-xs font-semibold text-red-700">
+                  <span className="min-w-0 truncate">
+                    {notice.orderNo ? `주문번호: ${notice.orderNo}` : "취소된 주문"}
+                  </span>
+                  <span className="shrink-0">
+                    {formatTime(notice.receivedAt.toISOString())}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm font-bold text-red-800">{notice.message}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </NoticeDialog>
+      <NoticeDialog
+        open={!!activeCancelNotice}
+        title="주문이 취소되었습니다"
+        tone="error"
+        confirmText="확인"
+        onConfirm={() => setActiveCancelNotice(null)}
+      >
+        {activeCancelNotice ? (
+          <div className="space-y-3">
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2">
+              <div className="flex items-center justify-between gap-2 text-xs font-semibold text-red-700">
+                <span className="min-w-0 truncate">
+                  {activeCancelNotice.orderNo
+                    ? `주문번호: ${activeCancelNotice.orderNo}`
+                    : "취소된 주문"}
+                </span>
+                <span className="shrink-0">
+                  {formatTime(activeCancelNotice.receivedAt.toISOString())}
+                </span>
+              </div>
+              <p className="mt-2 text-base font-black text-red-800">
+                {activeCancelNotice.message}
+              </p>
+            </div>
+            <p className="text-sm font-semibold text-muted-foreground">
+              이 안내는 취소 버튼에서 다시 확인할 수 있습니다.
+            </p>
+          </div>
+        ) : null}
       </NoticeDialog>
     </main>
   );
@@ -726,6 +991,12 @@ function OrderResultSummary({
           {formatPrice(order.totalAmount)}원
         </span>
       </div>
+      {order.status === "CANCELED" && order.cancelMessage ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2">
+          <p className="text-xs font-bold text-red-700">취소 안내</p>
+          <p className="mt-1 text-sm font-semibold text-red-800">{order.cancelMessage}</p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -855,25 +1126,25 @@ function MenuCard({
   quantity,
   onMinus,
   onPlus,
+  onToggle,
 }: {
   product: CustomerSaleProduct;
   quantity: number;
   onMinus: () => void;
   onPlus: () => void;
+  onToggle: () => void;
 }) {
   const soldOut = product.status === "SOLD_OUT";
   const isSet = product.type === "SALE_MENU_SET";
   const visibleComponents = product.components.slice(0, 4);
   const hiddenComponentCount = Math.max(0, product.components.length - visibleComponents.length);
-  const addToCart = () => {
-    if (!soldOut) onPlus();
-  };
+  const canToggle = !soldOut || quantity > 0;
 
   return (
     <article
-      aria-label={`${product.name} 담기`}
+      aria-label={quantity > 0 ? `${product.name} 선택 취소` : `${product.name} 담기`}
       className={`relative overflow-hidden rounded-lg border bg-white transition-colors ${
-        soldOut
+        !canToggle
           ? "opacity-75"
           : "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       } ${
@@ -881,14 +1152,14 @@ function MenuCard({
           ? "border-zinc-900 shadow-sm"
           : "border-zinc-300 hover:border-zinc-600"
       }`}
-      onClick={addToCart}
+      onClick={canToggle ? onToggle : undefined}
       onKeyDown={(event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
-        addToCart();
+        if (canToggle) onToggle();
       }}
       role="button"
-      tabIndex={soldOut ? -1 : 0}
+      tabIndex={canToggle ? 0 : -1}
     >
       {quantity > 0 && (
         <div className="pointer-events-none absolute inset-0 z-20 rounded-lg ring-2 ring-inset ring-zinc-950" />

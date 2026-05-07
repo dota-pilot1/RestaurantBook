@@ -19,6 +19,7 @@ export const tokenStorage = {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(ACCESS_KEY, access);
       window.localStorage.setItem(REFRESH_KEY, refresh);
+      window.dispatchEvent(new CustomEvent("auth:token-changed"));
     }
   },
   clear() {
@@ -26,6 +27,7 @@ export const tokenStorage = {
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(ACCESS_KEY);
       window.localStorage.removeItem(REFRESH_KEY);
+      window.dispatchEvent(new CustomEvent("auth:token-changed"));
     }
   },
 };

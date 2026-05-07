@@ -2,8 +2,15 @@ import type {
   CustomerOrderType,
   SaleProductType,
 } from "@/entities/customer-sale-product/model/types";
+import type { PaymentMethod } from "@/entities/payment/model/types";
 
-export type OrderStatus = "RECEIVED" | "COOKING" | "READY" | "COMPLETED" | "CANCELED";
+export type OrderStatus =
+  | "RECEIVED"
+  | "ACCEPTED"
+  | "COOKING"
+  | "READY"
+  | "COMPLETED"
+  | "CANCELED";
 
 export type CreateOrderItem = {
   type: SaleProductType;
@@ -15,6 +22,10 @@ export type CreateOrderBody = {
   tableName?: string | null;
   orderType: CustomerOrderType;
   items: CreateOrderItem[];
+};
+
+export type CompleteOperationOrderBody = {
+  paymentMethod: PaymentMethod;
 };
 
 export type OrderItemComponent = {
@@ -41,6 +52,8 @@ export type Order = {
   orderType: CustomerOrderType;
   status: OrderStatus;
   totalAmount: number;
+  cancelMessage: string | null;
   items: OrderItem[];
   createdAt: string;
+  updatedAt: string;
 };

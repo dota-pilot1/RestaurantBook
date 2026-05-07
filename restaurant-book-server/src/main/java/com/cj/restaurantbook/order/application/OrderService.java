@@ -37,6 +37,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final SaleMenuRepository saleMenuRepository;
     private final SaleMenuSetRepository saleMenuSetRepository;
+    private final OrderBroadcaster orderBroadcaster;
 
     @Transactional
     public OrderResponse createCustomerOrder(CreateOrderRequest request) {
@@ -52,6 +53,7 @@ public class OrderService {
 
         Order order = Order.create(generateOrderNo(), normalizeTableName(request.tableName()), request.orderType(), orderItems);
         Order saved = orderRepository.saveAndFlush(order);
+        orderBroadcaster.broadcastOrderChangedAfterCommit("CREATED", saved.getId(), saved.getTableName());
         return OrderResponse.from(saved);
     }
 
@@ -64,10 +66,42 @@ public class OrderService {
 
         return orderRepository.findByTableNameAndStatusInOrderByCreatedAtAscIdAsc(
                         normalizedTableName,
-                        List.of(OrderStatus.RECEIVED, OrderStatus.COOKING, OrderStatus.READY)
+                        List.of(OrderStatus.RECEIVED, OrderStatus.ACCEPTED, OrderStatus.COOKING, OrderStatus.READY)
                 ).stream()
                 .map(OrderResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderResponse> findRecentCanceledCustomerOrders(String tableName) {
+        String normalizedTableName = normalizeTableName(tableName);
+        if (normalizedTableName == null) {
+            return List.of();
+        }
+
+        return orderRepository.findTop10ByTableNameAndStatusAndCancelMessageIsNotNullOrderByUpdatedAtDescIdDesc(
+                        normalizedTableName,
+                        OrderStatus.CANCELED
+                ).stream()
+                .map(OrderResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public void acknowledgeCanceledCustomerOrders(String tableName) {
+        String normalizedTableName = normalizeTableName(tableName);
+        if (normalizedTableName == null) {
+            return;
+        }
+
+        List<Order> orders = orderRepository.findByTableNameAndStatusAndCancelMessageIsNotNullOrderByUpdatedAtDescIdDesc(
+                normalizedTableName,
+                OrderStatus.CANCELED
+        );
+        orders.forEach(Order::clearCancelMessage);
+        orders.forEach(order ->
+                orderBroadcaster.broadcastOrderChangedAfterCommit("CANCELED_ACKNOWLEDGED", order.getId(), order.getTableName())
+        );
     }
 
     @Transactional
@@ -83,7 +117,8 @@ public class OrderService {
             throw new BusinessException(ErrorCode.ORDER_CANCEL_NOT_ALLOWED);
         }
 
-        order.cancel();
+        order.cancel("고객이 주문을 취소했습니다.");
+        orderBroadcaster.broadcastOrderChangedAfterCommit("CANCELED", order.getId(), order.getTableName(), order.getCancelMessage());
         return OrderResponse.from(order);
     }
 

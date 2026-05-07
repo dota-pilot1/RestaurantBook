@@ -37,6 +37,16 @@ public class OrderController {
         return orderService.findActiveCustomerOrders(tableName);
     }
 
+    @GetMapping("/canceled")
+    public List<OrderResponse> canceled(@RequestParam String tableName) {
+        return orderService.findRecentCanceledCustomerOrders(tableName);
+    }
+
+    @PatchMapping("/canceled/acknowledge")
+    public void acknowledgeCanceled(@RequestParam String tableName) {
+        orderService.acknowledgeCanceledCustomerOrders(tableName);
+    }
+
     @PatchMapping("/{orderId}/cancel")
     public OrderResponse cancel(
             @PathVariable Long orderId,
