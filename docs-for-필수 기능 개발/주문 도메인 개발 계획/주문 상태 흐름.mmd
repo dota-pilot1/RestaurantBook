@@ -1,0 +1,19 @@
+stateDiagram-v2
+  [*] --> RECEIVED: 고객 주문 접수
+  RECEIVED --> COOKING: 조리 시작
+  COOKING --> READY: 준비 완료
+  READY --> COMPLETED: 고객 전달 완료
+  RECEIVED --> CANCELED: 주문 취소
+  COOKING --> CANCELED: 조리 중 취소
+  COMPLETED --> [*]
+  CANCELED --> [*]
+
+  note right of RECEIVED
+    MVP 초기 상태.
+    이번 주문 도메인 1차 구현은
+    RECEIVED 저장까지만 포함한다.
+  end note
+
+  note right of COOKING
+    주방 보드 단계에서 추가한다.
+  end note

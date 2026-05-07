@@ -1,0 +1,36 @@
+flowchart LR
+  subgraph Frontend[프론트 고객 화면]
+    KioskHome[KioskHome]
+    OrderApi[entities/order/api/orderApi.ts]
+    CartState[Cart State\ntype:id -> CartItem]
+  end
+
+  subgraph Backend[백엔드 주문 API]
+    Controller[OrderController\nPOST /api/customer/orders]
+    Service[OrderService]
+    OrderRepo[OrderRepository]
+  end
+
+  subgraph ProductData[판매 상품 기준 데이터]
+    SaleMenus[(sale_menus)]
+    SaleMenuSets[(sale_menu_sets)]
+    SaleMenuSetItems[(sale_menu_set_items)]
+  end
+
+  subgraph OrderData[주문 스냅샷 데이터]
+    Orders[(orders)]
+    OrderItems[(order_items)]
+    Components[(order_item_components)]
+  end
+
+  KioskHome --> CartState
+  KioskHome --> OrderApi
+  OrderApi --> Controller
+  Controller --> Service
+  Service --> SaleMenus
+  Service --> SaleMenuSets
+  Service --> SaleMenuSetItems
+  Service --> OrderRepo
+  OrderRepo --> Orders
+  OrderRepo --> OrderItems
+  OrderRepo --> Components
