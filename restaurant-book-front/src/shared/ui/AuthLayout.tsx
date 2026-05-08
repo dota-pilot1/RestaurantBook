@@ -75,7 +75,7 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
                   fill
                   unoptimized
                   sizes="(max-width: 1024px) 100vw, 512px"
-                  className="object-cover"
+                  className="object-contain"
                 />
               ) : (
                 <>
