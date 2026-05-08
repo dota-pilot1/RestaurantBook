@@ -76,7 +76,7 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
           <section className="relative flex h-full items-center justify-center p-6 sm:p-8">
             <Link
               href="/about"
-              className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
             >
               <Info className="h-3.5 w-3.5" />
               서비스 소개
