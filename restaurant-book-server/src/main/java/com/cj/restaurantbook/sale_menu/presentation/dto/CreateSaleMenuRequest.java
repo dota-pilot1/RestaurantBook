@@ -31,6 +31,8 @@ public record CreateSaleMenuRequest(
 
         boolean availableTakeout,
 
+        Boolean requiresCooking,
+
         @Min(0)
         int displayOrder
 ) {

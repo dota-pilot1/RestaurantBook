@@ -35,6 +35,7 @@ public class SaleMenuSeeder implements ApplicationRunner {
             String name,
             String description,
             int price,
+            boolean requiresCooking,
             int displayOrder
     ) {}
 
@@ -70,21 +71,21 @@ public class SaleMenuSeeder implements ApplicationRunner {
         }
 
         List<MenuDef> menus = List.of(
-                new MenuDef("식사", "육회 비빔밥", "신선한 육회와 나물을 올린 대표 비빔밥", 12000, 0),
-                new MenuDef("식사", "제육 덮밥", "매콤한 제육볶음을 올린 든든한 덮밥", 10000, 1),
-                new MenuDef("식사", "불고기 덮밥", "달큰한 간장 불고기와 밥을 함께 담은 메뉴", 11000, 2),
-                new MenuDef("국/찌개", "김치 찌개", "묵은지와 돼지고기를 넣고 끓인 김치 찌개", 10000, 0),
-                new MenuDef("국/찌개", "된장 찌개", "구수한 된장과 두부, 채소를 넣은 기본 찌개", 9000, 1),
-                new MenuDef("국/찌개", "소고기 미역국", "소고기와 미역을 푹 끓인 담백한 국", 9000, 2),
-                new MenuDef("면/분식", "잔치 국수", "멸치 육수와 고명을 올린 따뜻한 국수", 8000, 0),
-                new MenuDef("면/분식", "떡볶이", "매콤달콤한 양념의 기본 떡볶이", 7000, 1),
-                new MenuDef("사이드", "해물 파전", "해물과 쪽파를 넉넉히 넣은 바삭한 파전", 15000, 0),
-                new MenuDef("사이드", "김치전", "잘 익은 김치를 넣어 바삭하게 부친 전", 10000, 1),
-                new MenuDef("사이드", "고기 만두", "육즙이 살아있는 찐만두", 6000, 2),
-                new MenuDef("사이드", "오늘의 반찬", "매장에서 준비한 기본 반찬 구성", 4000, 3),
-                new MenuDef("음료", "식혜", "달콤하고 시원한 전통 음료", 4000, 0),
-                new MenuDef("음료", "수정과", "계피 향이 은은한 전통 음료", 4000, 1),
-                new MenuDef("음료", "콜라", "시원한 탄산음료", 2500, 2)
+                new MenuDef("식사", "육회 비빔밥", "신선한 육회와 나물을 올린 대표 비빔밥", 12000, true, 0),
+                new MenuDef("식사", "제육 덮밥", "매콤한 제육볶음을 올린 든든한 덮밥", 10000, true, 1),
+                new MenuDef("식사", "불고기 덮밥", "달큰한 간장 불고기와 밥을 함께 담은 메뉴", 11000, true, 2),
+                new MenuDef("국/찌개", "김치 찌개", "묵은지와 돼지고기를 넣고 끓인 김치 찌개", 10000, true, 0),
+                new MenuDef("국/찌개", "된장 찌개", "구수한 된장과 두부, 채소를 넣은 기본 찌개", 9000, true, 1),
+                new MenuDef("국/찌개", "소고기 미역국", "소고기와 미역을 푹 끓인 담백한 국", 9000, true, 2),
+                new MenuDef("면/분식", "잔치 국수", "멸치 육수와 고명을 올린 따뜻한 국수", 8000, true, 0),
+                new MenuDef("면/분식", "떡볶이", "매콤달콤한 양념의 기본 떡볶이", 7000, true, 1),
+                new MenuDef("사이드", "해물 파전", "해물과 쪽파를 넉넉히 넣은 바삭한 파전", 15000, true, 0),
+                new MenuDef("사이드", "김치전", "잘 익은 김치를 넣어 바삭하게 부친 전", 10000, true, 1),
+                new MenuDef("사이드", "고기 만두", "육즙이 살아있는 찐만두", 6000, true, 2),
+                new MenuDef("사이드", "오늘의 반찬", "매장에서 준비한 기본 반찬 구성", 4000, true, 3),
+                new MenuDef("음료", "식혜", "달콤하고 시원한 전통 음료", 4000, false, 0),
+                new MenuDef("음료", "수정과", "계피 향이 은은한 전통 음료", 4000, false, 1),
+                new MenuDef("음료", "콜라", "시원한 탄산음료", 2500, false, 2)
         );
 
         for (MenuDef menu : menus) {
@@ -101,6 +102,7 @@ public class SaleMenuSeeder implements ApplicationRunner {
                             true,
                             true,
                             true,
+                            menu.requiresCooking(),
                             menu.displayOrder()
                     ),
                     () -> {
@@ -114,6 +116,7 @@ public class SaleMenuSeeder implements ApplicationRunner {
                                 true,
                                 true,
                                 true,
+                                menu.requiresCooking(),
                                 menu.displayOrder()
                         ));
                         log.info("Seeded sale menu: {}", menu.name());

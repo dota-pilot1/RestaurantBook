@@ -96,6 +96,14 @@ public class Order {
         this.cancelMessage = normalizeCancelMessage(cancelMessage);
     }
 
+    public void refund() {
+        if (this.status != OrderStatus.COMPLETED) {
+            throw new IllegalStateException("Invalid order status transition: " + this.status + " -> " + OrderStatus.CANCELED);
+        }
+        this.status = OrderStatus.CANCELED;
+        this.cancelMessage = "환불 처리됨";
+    }
+
     public void clearCancelMessage() {
         this.cancelMessage = null;
     }
@@ -108,8 +116,15 @@ public class Order {
         transition(OrderStatus.ACCEPTED, OrderStatus.COOKING);
     }
 
+    public boolean requiresCooking() {
+        return items.isEmpty() || items.stream().anyMatch(OrderItem::isRequiresCooking);
+    }
+
     public void markReady() {
-        transition(OrderStatus.COOKING, OrderStatus.READY);
+        if (this.status != OrderStatus.ACCEPTED && this.status != OrderStatus.COOKING) {
+            throw new IllegalStateException("Invalid order status transition: " + this.status + " -> " + OrderStatus.READY);
+        }
+        this.status = OrderStatus.READY;
     }
 
     public void complete() {

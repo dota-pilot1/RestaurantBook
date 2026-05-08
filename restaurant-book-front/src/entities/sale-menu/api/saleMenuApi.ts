@@ -11,6 +11,7 @@ export type CreateSaleMenuBody = {
   visible: boolean;
   availableDineIn: boolean;
   availableTakeout: boolean;
+  requiresCooking: boolean;
   displayOrder: number;
 };
 

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Check,
   XCircle,
   ImageIcon,
   Minus,
@@ -296,7 +297,7 @@ export function KioskHome() {
     queryKey: ["customer-active-staff-calls", tableName],
     queryFn: () => staffCallApi.getActiveCustomerCalls(tableName),
     enabled: tableName.trim().length > 0,
-    refetchInterval: 10000,
+    refetchInterval: 3000,
   });
 
   const cartItems = useMemo(
@@ -413,6 +414,7 @@ export function KioskHome() {
       setStaffCallMessage("");
       setStaffCallType("GENERAL");
       queryClient.invalidateQueries({ queryKey: ["customer-active-staff-calls", tableName] });
+      queryClient.refetchQueries({ queryKey: ["customer-active-staff-calls", tableName], type: "active" });
       toast.success("직원을 호출했습니다.");
     },
     onError: (e) => {
@@ -422,11 +424,25 @@ export function KioskHome() {
 
   const cancelStaffCallMutation = useMutation({
     mutationFn: (callId: number) => staffCallApi.cancelCustomerCall(callId, { tableName }),
+    onMutate: async (callId) => {
+      await queryClient.cancelQueries({ queryKey: ["customer-active-staff-calls", tableName] });
+      const previousCalls =
+        queryClient.getQueryData<StaffCall[]>(["customer-active-staff-calls", tableName]) ?? [];
+      queryClient.setQueryData<StaffCall[]>(
+        ["customer-active-staff-calls", tableName],
+        (current) => current?.filter((call) => call.id !== callId) ?? [],
+      );
+      return { previousCalls };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customer-active-staff-calls", tableName] });
+      queryClient.refetchQueries({ queryKey: ["customer-active-staff-calls", tableName], type: "active" });
       toast.success("호출을 취소했습니다.");
     },
-    onError: (e) => {
+    onError: (e, _callId, context) => {
+      if (context?.previousCalls) {
+        queryClient.setQueryData(["customer-active-staff-calls", tableName], context.previousCalls);
+      }
       toastError(e, "호출을 취소하지 못했습니다.");
     },
   });
@@ -1357,6 +1373,12 @@ function MenuCard({
   const canToggle = !soldOut || quantity > 0;
 
   return (
+    <div className="relative">
+      {quantity > 0 && (
+        <div className="absolute -right-2.5 -top-2.5 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 shadow-md">
+          <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+        </div>
+      )}
     <article
       aria-label={quantity > 0 ? `${product.name} 선택 취소` : `${product.name} 담기`}
       className={`relative overflow-hidden rounded-lg border bg-white transition-colors ${
@@ -1467,6 +1489,7 @@ function MenuCard({
         </div>
       </div>
     </article>
+    </div>
   );
 }
 

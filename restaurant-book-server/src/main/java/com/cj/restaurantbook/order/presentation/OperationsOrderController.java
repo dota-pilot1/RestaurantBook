@@ -73,4 +73,14 @@ public class OperationsOrderController {
     ) {
         return operationsOrderService.cancel(orderId, request.cancelMessage());
     }
+
+    @PatchMapping("/{orderId}/refund")
+    @Operation(summary = "결제 완료 주문 환불: COMPLETED -> CANCELED")
+    public OrderResponse refund(
+            @PathVariable Long orderId,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        Long handledBy = principal == null ? null : principal.getId();
+        return operationsOrderService.refund(orderId, handledBy);
+    }
 }

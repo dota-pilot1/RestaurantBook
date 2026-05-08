@@ -8,7 +8,10 @@ public record SalesResponse(
         LocalDate endDate,
         long totalAmount,
         long paymentCount,
+        long refundAmount,
+        long refundCount,
         List<PaymentMethodSummaryResponse> methodSummaries,
-        List<PaymentListItemResponse> recentPayments
+        List<PaymentListItemResponse> recentPayments,
+        List<PaymentListItemResponse> refundedPayments
 ) {
 }

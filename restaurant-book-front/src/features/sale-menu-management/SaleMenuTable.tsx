@@ -46,7 +46,7 @@ export function SaleMenuTable({
 }: Props) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[920px] text-sm">
+      <table className="w-full min-w-[1040px] text-sm">
         <thead>
           <tr className="border-b border-border bg-muted/40">
             <Th className="w-10">
@@ -64,6 +64,7 @@ export function SaleMenuTable({
             <Th>가격</Th>
             <Th>상태</Th>
             <Th>주문 유형</Th>
+            <Th>조리</Th>
             <Th>노출</Th>
             <Th>정렬</Th>
             <Th className="text-right">관리</Th>
@@ -126,6 +127,14 @@ export function SaleMenuTable({
               </Td>
               <Td>
                 <Switch
+                  checked={menu.requiresCooking}
+                  disabled={isUpdating}
+                  aria-label={`${menu.name} 조리 필요 여부`}
+                  onCheckedChange={(requiresCooking) => onQuickUpdate(menu, { requiresCooking })}
+                />
+              </Td>
+              <Td>
+                <Switch
                   checked={menu.visible}
                   disabled={isUpdating}
                   aria-label={`${menu.name} 노출 여부`}
@@ -156,7 +165,7 @@ export function SaleMenuTable({
             </tr>
           )) : (
             <tr>
-              <Td colSpan={10} className="py-8 text-center text-muted-foreground">
+              <Td colSpan={11} className="py-8 text-center text-muted-foreground">
                 등록된 판매 메뉴가 없습니다.
               </Td>
             </tr>

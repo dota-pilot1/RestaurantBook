@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Banknote,
   BarChart3,
-  CalendarDays,
   CreditCard,
   ReceiptText,
   RotateCcw,
@@ -149,8 +148,8 @@ function SalesContent() {
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Metric title="총 매출" value={isLoading ? "-" : formatPrice(data?.totalAmount ?? 0)} icon={CreditCard} />
           <Metric title="결제 건수" value={isLoading ? "-" : `${data?.paymentCount ?? 0}건`} icon={ReceiptText} />
-          <Metric title="취소 금액" value="0원" icon={RotateCcw} />
-          <Metric title="환불 금액" value="0원" icon={CalendarDays} />
+          <Metric title="환불 금액" value={isLoading ? "-" : formatPrice(data?.refundAmount ?? 0)} icon={RotateCcw} />
+          <Metric title="환불 건수" value={isLoading ? "-" : `${data?.refundCount ?? 0}건`} icon={ReceiptText} />
         </section>
 
         <section className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
@@ -176,7 +175,7 @@ function SalesContent() {
                   </div>
                 );
               })}
-              {!isLoading && (data?.methodSummaries.length ?? 0) === 0 ? (
+              {!isLoading && (data?.methodSummaries?.length ?? 0) === 0 ? (
                 <p className="rounded-md border border-dashed border-border p-6 text-center text-sm font-semibold text-muted-foreground">
                   결제 기록이 없습니다.
                 </p>
@@ -213,7 +212,7 @@ function SalesContent() {
                       </td>
                     </tr>
                   ))}
-                  {!isLoading && (data?.recentPayments.length ?? 0) === 0 ? (
+                  {!isLoading && (data?.recentPayments?.length ?? 0) === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-4 py-12 text-center font-semibold text-muted-foreground">
                         조회 기간의 결제 기록이 없습니다.
@@ -223,6 +222,49 @@ function SalesContent() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-md border border-border bg-background">
+          <div className="border-b border-border px-4 py-3">
+            <h2 className="text-sm font-bold">최근 환불 목록</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 font-bold">환불시각</th>
+                  <th className="px-4 py-3 font-bold">주문번호</th>
+                  <th className="px-4 py-3 font-bold">테이블</th>
+                  <th className="px-4 py-3 font-bold">결제수단</th>
+                  <th className="px-4 py-3 text-right font-bold">환불 금액</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {(data?.refundedPayments ?? []).map((payment) => (
+                  <tr key={payment.id}>
+                    <td className="px-4 py-3 font-medium">
+                      {formatDateTime(payment.refundedAt ?? payment.paidAt)}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs font-bold">
+                      #{payment.orderNo.split("-").at(-1) ?? payment.orderNo}
+                    </td>
+                    <td className="px-4 py-3">{payment.tableName ?? "테이블 미지정"}</td>
+                    <td className="px-4 py-3">{methodLabel[payment.method]}</td>
+                    <td className="px-4 py-3 text-right font-black tabular-nums text-red-700">
+                      -{formatPrice(payment.amount)}
+                    </td>
+                  </tr>
+                ))}
+                {!isLoading && (data?.refundedPayments?.length ?? 0) === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-12 text-center font-semibold text-muted-foreground">
+                      조회 기간의 환불 기록이 없습니다.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
           </div>
         </section>
       </div>

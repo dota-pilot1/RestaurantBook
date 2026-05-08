@@ -57,6 +57,12 @@ public class Payment {
     @Column(name = "handled_by")
     private Long handledBy;
 
+    @Column(name = "refunded_at")
+    private Instant refundedAt;
+
+    @Column(name = "refunded_by")
+    private Long refundedBy;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -74,5 +80,14 @@ public class Payment {
         payment.paidAt = Instant.now();
         payment.handledBy = handledBy;
         return payment;
+    }
+
+    public void refund(Long handledBy) {
+        if (this.status != PaymentStatus.PAID) {
+            throw new IllegalStateException("Invalid payment status transition: " + this.status + " -> " + PaymentStatus.REFUNDED);
+        }
+        this.status = PaymentStatus.REFUNDED;
+        this.refundedAt = Instant.now();
+        this.refundedBy = handledBy;
     }
 }

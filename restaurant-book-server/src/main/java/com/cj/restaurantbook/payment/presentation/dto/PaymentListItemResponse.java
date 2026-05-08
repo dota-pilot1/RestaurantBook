@@ -15,7 +15,9 @@ public record PaymentListItemResponse(
         PaymentMethod method,
         PaymentStatus status,
         Instant paidAt,
-        Long handledBy
+        Instant refundedAt,
+        Long handledBy,
+        Long refundedBy
 ) {
     public static PaymentListItemResponse from(Payment payment) {
         return new PaymentListItemResponse(
@@ -27,7 +29,9 @@ public record PaymentListItemResponse(
                 payment.getMethod(),
                 payment.getStatus(),
                 payment.getPaidAt(),
-                payment.getHandledBy()
+                payment.getRefundedAt(),
+                payment.getHandledBy(),
+                payment.getRefundedBy()
         );
     }
 }

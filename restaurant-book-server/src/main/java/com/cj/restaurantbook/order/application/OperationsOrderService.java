@@ -94,4 +94,22 @@ public class OperationsOrderService {
         orderBroadcaster.broadcastOrderChangedAfterCommit("CANCELED", order.getId(), order.getTableName(), order.getCancelMessage());
         return OrderResponse.from(order);
     }
+
+    @Transactional
+    public OrderResponse refund(Long orderId, Long handledBy) {
+        Order order = orderRepository.findForUpdateById(orderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
+        Payment payment = paymentRepository.findForUpdateByOrderId(orderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND));
+
+        try {
+            order.refund();
+            payment.refund(handledBy);
+        } catch (IllegalStateException e) {
+            throw new BusinessException(ErrorCode.PAYMENT_REFUND_NOT_ALLOWED);
+        }
+
+        orderBroadcaster.broadcastOrderChangedAfterCommit("REFUNDED", order.getId(), order.getTableName(), order.getCancelMessage());
+        return OrderResponse.from(order);
+    }
 }

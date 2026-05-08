@@ -51,7 +51,7 @@ public class KitchenOrderController {
     }
 
     @PatchMapping("/{orderId}/ready")
-    @Operation(summary = "조리 완료: COOKING -> READY")
+    @Operation(summary = "조리 완료: ACCEPTED 또는 COOKING -> READY")
     public OrderResponse ready(@PathVariable Long orderId) {
         return kitchenOrderService.ready(orderId);
     }

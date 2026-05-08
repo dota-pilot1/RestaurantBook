@@ -17,6 +17,7 @@ public record SaleMenuResponse(
         boolean visible,
         boolean availableDineIn,
         boolean availableTakeout,
+        boolean requiresCooking,
         int displayOrder,
         Instant createdAt,
         Instant updatedAt
@@ -33,6 +34,7 @@ public record SaleMenuResponse(
                 menu.isVisible(),
                 menu.isAvailableDineIn(),
                 menu.isAvailableTakeout(),
+                menu.isRequiresCooking(),
                 menu.getDisplayOrder(),
                 menu.getCreatedAt(),
                 menu.getUpdatedAt()

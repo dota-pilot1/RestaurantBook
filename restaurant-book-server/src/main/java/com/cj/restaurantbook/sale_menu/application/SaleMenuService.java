@@ -60,6 +60,7 @@ public class SaleMenuService {
                 req.visible(),
                 req.availableDineIn(),
                 req.availableTakeout(),
+                resolveRequiresCooking(req.requiresCooking()),
                 req.displayOrder()
         );
         return SaleMenuResponse.from(saleMenuRepository.save(menu));
@@ -79,6 +80,7 @@ public class SaleMenuService {
                 req.visible(),
                 req.availableDineIn(),
                 req.availableTakeout(),
+                resolveRequiresCooking(req.requiresCooking()),
                 req.displayOrder()
         );
         return SaleMenuResponse.from(menu);
@@ -100,5 +102,9 @@ public class SaleMenuService {
         }
         return categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SALE_MENU_CATEGORY_NOT_FOUND));
+    }
+
+    private boolean resolveRequiresCooking(Boolean requiresCooking) {
+        return requiresCooking == null || requiresCooking;
     }
 }

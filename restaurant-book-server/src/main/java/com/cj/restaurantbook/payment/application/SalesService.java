@@ -31,8 +31,9 @@ public class SalesService {
     @Transactional(readOnly = true)
     public SalesSummaryResponse todaySummary() {
         LocalDate today = LocalDate.now(BUSINESS_ZONE);
-        List<Payment> payments = findPaidPayments(today, today);
-        return toSummary(payments);
+        List<Payment> paidPayments = findPaidPayments(today, today);
+        List<Payment> refundedPayments = findRefundedPayments(today, today);
+        return toSummary(paidPayments, refundedPayments);
     }
 
     @Transactional(readOnly = true)
@@ -43,9 +44,14 @@ public class SalesService {
             normalizedStart = normalizedEnd;
         }
 
-        List<Payment> payments = findPaidPayments(normalizedStart, normalizedEnd);
-        SalesSummaryResponse summary = toSummary(payments);
-        List<PaymentListItemResponse> recentPayments = payments.stream()
+        List<Payment> paidPayments = findPaidPayments(normalizedStart, normalizedEnd);
+        List<Payment> refundedPayments = findRefundedPayments(normalizedStart, normalizedEnd);
+        SalesSummaryResponse summary = toSummary(paidPayments, refundedPayments);
+        List<PaymentListItemResponse> recentPayments = paidPayments.stream()
+                .limit(50)
+                .map(PaymentListItemResponse::from)
+                .toList();
+        List<PaymentListItemResponse> recentRefundedPayments = refundedPayments.stream()
                 .limit(50)
                 .map(PaymentListItemResponse::from)
                 .toList();
@@ -55,8 +61,11 @@ public class SalesService {
                 normalizedEnd,
                 summary.totalAmount(),
                 summary.paymentCount(),
+                summary.refundAmount(),
+                summary.refundCount(),
                 summary.methodSummaries(),
-                recentPayments
+                recentPayments,
+                recentRefundedPayments
         );
     }
 
@@ -66,8 +75,15 @@ public class SalesService {
         return paymentRepository.findByStatusAndPaidAtRangeWithOrder(PaymentStatus.PAID, start, end);
     }
 
-    private SalesSummaryResponse toSummary(List<Payment> payments) {
+    private List<Payment> findRefundedPayments(LocalDate startDate, LocalDate endDate) {
+        Instant start = startDate.atStartOfDay(BUSINESS_ZONE).toInstant();
+        Instant end = endDate.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant();
+        return paymentRepository.findByStatusAndRefundedAtRangeWithOrder(PaymentStatus.REFUNDED, start, end);
+    }
+
+    private SalesSummaryResponse toSummary(List<Payment> payments, List<Payment> refundedPayments) {
         long totalAmount = payments.stream().mapToLong(Payment::getAmount).sum();
+        long refundAmount = refundedPayments.stream().mapToLong(Payment::getAmount).sum();
         Map<PaymentMethod, List<Payment>> byMethod = payments.stream()
                 .collect(Collectors.groupingBy(Payment::getMethod));
         List<PaymentMethodSummaryResponse> methodSummaries = Arrays.stream(PaymentMethod.values())
@@ -77,6 +93,6 @@ public class SalesService {
                     return new PaymentMethodSummaryResponse(method, amount, methodPayments.size());
                 })
                 .toList();
-        return new SalesSummaryResponse(totalAmount, payments.size(), methodSummaries);
+        return new SalesSummaryResponse(totalAmount, payments.size(), refundAmount, refundedPayments.size(), methodSummaries);
     }
 }

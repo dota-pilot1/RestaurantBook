@@ -52,6 +52,8 @@ public enum ErrorCode {
     ORDER_TABLE_MISMATCH(HttpStatus.FORBIDDEN, "ORDER_007", "테이블 정보가 일치하지 않습니다."),
     ORDER_STATUS_TRANSITION_NOT_ALLOWED(HttpStatus.CONFLICT, "ORDER_008", "현재 주문 상태에서는 처리할 수 없습니다."),
     PAYMENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "PAYMENT_001", "이미 결제 완료된 주문입니다."),
+    PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PAYMENT_002", "결제 정보를 찾을 수 없습니다."),
+    PAYMENT_REFUND_NOT_ALLOWED(HttpStatus.CONFLICT, "PAYMENT_003", "현재 결제 상태에서는 환불할 수 없습니다."),
     STAFF_CALL_NOT_FOUND(HttpStatus.NOT_FOUND, "STAFF_CALL_001", "직원 호출을 찾을 수 없습니다."),
     STAFF_CALL_TABLE_REQUIRED(HttpStatus.BAD_REQUEST, "STAFF_CALL_002", "테이블 정보가 필요합니다."),
     STAFF_CALL_DUPLICATE(HttpStatus.CONFLICT, "STAFF_CALL_003", "이미 호출이 진행 중입니다. 잠시 후 다시 시도해주세요."),

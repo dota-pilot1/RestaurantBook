@@ -23,6 +23,7 @@ const schema = z.object({
   visible: z.boolean(),
   availableDineIn: z.boolean(),
   availableTakeout: z.boolean(),
+  requiresCooking: z.boolean(),
   displayOrder: z.number().min(0, "0 이상으로 입력해주세요."),
 });
 
@@ -46,6 +47,7 @@ export function SaleMenuFormDialog({ open, menu, categories, onClose }: Props) {
   const visible = useWatch({ control, name: "visible" });
   const availableDineIn = useWatch({ control, name: "availableDineIn" });
   const availableTakeout = useWatch({ control, name: "availableTakeout" });
+  const requiresCooking = useWatch({ control, name: "requiresCooking" });
 
   useEffect(() => {
     if (!open) return;
@@ -59,6 +61,7 @@ export function SaleMenuFormDialog({ open, menu, categories, onClose }: Props) {
       visible: menu.visible,
       availableDineIn: menu.availableDineIn,
       availableTakeout: menu.availableTakeout,
+      requiresCooking: menu.requiresCooking,
       displayOrder: menu.displayOrder,
     } : defaultValues());
   }, [open, menu, reset]);
@@ -75,6 +78,7 @@ export function SaleMenuFormDialog({ open, menu, categories, onClose }: Props) {
         visible: values.visible,
         availableDineIn: values.availableDineIn,
         availableTakeout: values.availableTakeout,
+        requiresCooking: values.requiresCooking,
         displayOrder: values.displayOrder,
       };
       return isEdit ? saleMenuApi.update(menu.id, body) : saleMenuApi.create(body);
@@ -148,10 +152,11 @@ export function SaleMenuFormDialog({ open, menu, categories, onClose }: Props) {
           <Field label="대표 이미지" error={errors.imageUrl?.message}>
             <SaleMenuImageField value={imageUrl} onChange={(url) => setValue("imageUrl", url)} />
           </Field>
-          <div className="grid gap-2 md:grid-cols-3">
+          <div className="grid gap-2 md:grid-cols-4">
             <Toggle label="노출" checked={visible} onChange={(v) => setValue("visible", v)} />
             <Toggle label="매장 주문 가능" checked={availableDineIn} onChange={(v) => setValue("availableDineIn", v)} />
             <Toggle label="포장 주문 가능" checked={availableTakeout} onChange={(v) => setValue("availableTakeout", v)} />
+            <Toggle label="조리 필요" checked={requiresCooking} onChange={(v) => setValue("requiresCooking", v)} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent">취소</button>
@@ -176,6 +181,7 @@ function defaultValues(): FormValues {
     visible: true,
     availableDineIn: true,
     availableTakeout: true,
+    requiresCooking: true,
     displayOrder: 0,
   };
 }

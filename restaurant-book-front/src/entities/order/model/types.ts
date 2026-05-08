@@ -42,6 +42,7 @@ export type OrderItem = {
   unitPrice: number;
   quantity: number;
   lineTotal: number;
+  requiresCooking: boolean;
   components: OrderItemComponent[];
 };
 

@@ -31,6 +31,8 @@ public record UpdateSaleMenuRequest(
 
         boolean availableTakeout,
 
+        Boolean requiresCooking,
+
         @Min(0)
         int displayOrder
 ) {

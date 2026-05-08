@@ -49,6 +49,9 @@ public class SaleMenu {
     @Column(nullable = false)
     private boolean availableTakeout = true;
 
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean requiresCooking = true;
+
     @Column(nullable = false)
     private int displayOrder = 0;
 
@@ -70,6 +73,7 @@ public class SaleMenu {
             boolean visible,
             boolean availableDineIn,
             boolean availableTakeout,
+            boolean requiresCooking,
             int displayOrder
     ) {
         SaleMenu menu = new SaleMenu();
@@ -82,6 +86,7 @@ public class SaleMenu {
         menu.visible = visible;
         menu.availableDineIn = availableDineIn;
         menu.availableTakeout = availableTakeout;
+        menu.requiresCooking = requiresCooking;
         menu.displayOrder = displayOrder;
         return menu;
     }
@@ -96,6 +101,7 @@ public class SaleMenu {
             boolean visible,
             boolean availableDineIn,
             boolean availableTakeout,
+            boolean requiresCooking,
             int displayOrder
     ) {
         this.category = category;
@@ -107,6 +113,7 @@ public class SaleMenu {
         this.visible = visible;
         this.availableDineIn = availableDineIn;
         this.availableTakeout = availableTakeout;
+        this.requiresCooking = requiresCooking;
         this.displayOrder = displayOrder;
     }
 }

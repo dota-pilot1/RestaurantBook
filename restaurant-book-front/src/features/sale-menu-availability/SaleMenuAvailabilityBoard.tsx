@@ -46,6 +46,7 @@ export function SaleMenuAvailabilityBoard() {
         visible: patch.visible ?? menu.visible,
         availableDineIn: patch.availableDineIn ?? menu.availableDineIn,
         availableTakeout: patch.availableTakeout ?? menu.availableTakeout,
+        requiresCooking: menu.requiresCooking,
         displayOrder: menu.displayOrder,
       }),
     onSuccess: () => {

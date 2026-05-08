@@ -37,7 +37,7 @@ public class AppWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        log.info("WS connected: sessionId={} role={}", session.getId(), session.getAttributes().get("role"));
+        log.debug("WS connected: sessionId={} role={}", session.getId(), session.getAttributes().get("role"));
     }
 
     @Override
@@ -48,7 +48,7 @@ public class AppWebSocketHandler extends TextWebSocketHandler {
                 topicSessions.remove(topic, sessions);
             }
         });
-        log.info("WS disconnected: sessionId={} status={}", session.getId(), status);
+        log.debug("WS disconnected: sessionId={} status={}", session.getId(), status);
     }
 
     @Override

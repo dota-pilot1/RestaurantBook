@@ -114,4 +114,9 @@ public class SaleMenuSet {
         this.items.addAll(newItems);
         this.items.sort(Comparator.comparingInt(SaleMenuSetItem::getDisplayOrder).thenComparing(SaleMenuSetItem::getId, Comparator.nullsLast(Long::compareTo)));
     }
+
+    public boolean requiresCooking() {
+        return items.isEmpty() || items.stream()
+                .anyMatch(item -> item.getSaleMenu().isRequiresCooking());
+    }
 }

@@ -62,6 +62,9 @@ public class OrderItem {
     @Column(nullable = false)
     private int displayOrder;
 
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean requiresCooking = true;
+
     @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private final List<OrderItemComponent> components = new ArrayList<>();
 
@@ -75,6 +78,7 @@ public class OrderItem {
         item.quantity = quantity;
         item.lineTotal = menu.getPrice() * quantity;
         item.displayOrder = displayOrder;
+        item.requiresCooking = menu.isRequiresCooking();
         return item;
     }
 
@@ -88,6 +92,7 @@ public class OrderItem {
         item.quantity = quantity;
         item.lineTotal = set.getPrice() * quantity;
         item.displayOrder = displayOrder;
+        item.requiresCooking = set.requiresCooking();
 
         set.getItems().stream()
                 .sorted(Comparator.comparingInt(com.cj.restaurantbook.sale_menu_set.domain.SaleMenuSetItem::getDisplayOrder))

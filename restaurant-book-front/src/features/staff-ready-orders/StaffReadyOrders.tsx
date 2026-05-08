@@ -25,6 +25,7 @@ import { useOperationsStaffCallsWebSocket } from "@/entities/staff-call/api/staf
 import type { StaffCall, StaffCallType } from "@/entities/staff-call/model/types";
 import { toast, toastError } from "@/shared/lib/toast";
 import { cn } from "@/shared/lib/utils";
+import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { NoticeDialog } from "@/shared/ui/NoticeDialog";
 import { RequireRole } from "@/widgets/guards/RequireRole";
 
@@ -153,6 +154,7 @@ function StaffOrderBoardContent() {
   const [cancelNoticeDialogOpen, setCancelNoticeDialogOpen] = useState(false);
   const [staffCallDialogOpen, setStaffCallDialogOpen] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState<Order | null>(null);
+  const [refundTarget, setRefundTarget] = useState<Order | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>("CARD");
   useOperationalOrdersWebSocket();
   useOperationsStaffCallsWebSocket(true, (payload) => {
@@ -169,6 +171,7 @@ function StaffOrderBoardContent() {
       }
       queryClient.refetchQueries({ queryKey: ["operation-orders"], type: "active" });
       queryClient.refetchQueries({ queryKey: ["operation-canceled-orders"], type: "active" });
+      queryClient.refetchQueries({ queryKey: ["operations-staff-calls"], type: "active" });
     };
     window.addEventListener("focus", refetchBoard);
     document.addEventListener("visibilitychange", refetchBoard);
@@ -203,7 +206,7 @@ function StaffOrderBoardContent() {
   } = useQuery({
     queryKey: ["operations-staff-calls"],
     queryFn: staffCallApi.getPendingOperationsCalls,
-    refetchInterval: 15000,
+    refetchInterval: 3000,
     refetchOnWindowFocus: true,
   });
 
@@ -267,11 +270,39 @@ function StaffOrderBoardContent() {
 
   const acknowledgeStaffCallMutation = useMutation({
     mutationFn: (callId: number) => staffCallApi.acknowledgeOperationsCall(callId),
+    onMutate: async (callId) => {
+      await queryClient.cancelQueries({ queryKey: ["operations-staff-calls"] });
+      const previousCalls = queryClient.getQueryData<StaffCall[]>(["operations-staff-calls"]) ?? [];
+      queryClient.setQueryData<StaffCall[]>(
+        ["operations-staff-calls"],
+        (current) => current?.filter((call) => call.id !== callId) ?? [],
+      );
+      return { previousCalls };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["operations-staff-calls"] });
+      queryClient.refetchQueries({ queryKey: ["operations-staff-calls"], type: "active" });
       toast.success("호출을 확인 처리했습니다.");
     },
-    onError: (error) => toastError(error, "호출 확인 처리를 하지 못했습니다."),
+    onError: (error, _callId, context) => {
+      if (context?.previousCalls) {
+        queryClient.setQueryData(["operations-staff-calls"], context.previousCalls);
+      }
+      toastError(error, "호출 확인 처리를 하지 못했습니다.");
+    },
+  });
+
+  const refundMutation = useMutation({
+    mutationFn: orderApi.refundOperationOrder,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["operation-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["operation-canceled-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      queryClient.refetchQueries({ queryKey: ["operation-orders"], type: "active" });
+      setRefundTarget(null);
+      toast.success("환불 처리했습니다.");
+    },
+    onError: (error) => toastError(error, "환불 처리하지 못했습니다."),
   });
 
   const submitCancel = () => {
@@ -290,6 +321,11 @@ function StaffOrderBoardContent() {
       orderId: paymentTarget.id,
       paymentMethod: selectedPaymentMethod,
     });
+  };
+
+  const submitRefund = () => {
+    if (!refundTarget || refundMutation.isPending) return;
+    refundMutation.mutate(refundTarget.id);
   };
 
   return (
@@ -379,6 +415,7 @@ function StaffOrderBoardContent() {
                         order={order}
                         completing={completeMutation.isPending && completeMutation.variables?.orderId === order.id}
                         canceling={cancelMutation.isPending && cancelTarget?.id === order.id}
+                        refunding={refundMutation.isPending && refundMutation.variables === order.id}
                         onComplete={() => {
                           setPaymentTarget(order);
                           setSelectedPaymentMethod("CARD");
@@ -387,6 +424,7 @@ function StaffOrderBoardContent() {
                           setCancelTarget(order);
                           setCancelMessage("");
                         }}
+                        onRefund={() => setRefundTarget(order)}
                       />
                     ))
                   )}
@@ -583,6 +621,42 @@ function StaffOrderBoardContent() {
           </div>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={Boolean(refundTarget)}
+        title="환불 처리"
+        description={
+          refundTarget
+            ? `${refundTarget.tableName ?? "테이블 미지정"} · #${refundTarget.orderNo.split("-").at(-1) ?? refundTarget.orderNo}\n${formatPrice(refundTarget.totalAmount)}원을 환불 처리합니다.`
+            : undefined
+        }
+        confirmText="환불 처리"
+        cancelText="닫기"
+        variant="destructive"
+        loading={refundMutation.isPending}
+        onConfirm={submitRefund}
+        onCancel={() => {
+          if (refundMutation.isPending) return;
+          setRefundTarget(null);
+        }}
+      >
+        {refundTarget ? (
+          <div className="rounded-md border border-border bg-muted/35 p-3">
+            <div className="flex items-center justify-between gap-3 border-b border-border pb-2">
+              <span className="text-sm font-bold">주문 정보</span>
+              <span className="text-sm font-black tabular-nums">{formatPrice(refundTarget.totalAmount)}원</span>
+            </div>
+            <div className="mt-2 max-h-48 space-y-2 overflow-y-auto">
+              {refundTarget.items.map((item) => (
+                <div key={item.id} className="flex items-center justify-between gap-3 rounded-md bg-background px-3 py-2">
+                  <span className="min-w-0 truncate text-sm font-semibold">{item.name}</span>
+                  <span className="shrink-0 text-sm font-bold">x{item.quantity}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </ConfirmDialog>
     </main>
   );
 }
@@ -638,14 +712,18 @@ function StaffOrderCard({
   order,
   completing,
   canceling,
+  refunding,
   onComplete,
   onCancel,
+  onRefund,
 }: {
   order: Order & { status: StaffStatus };
   completing: boolean;
   canceling: boolean;
+  refunding: boolean;
   onComplete: () => void;
   onCancel: () => void;
+  onRefund: () => void;
 }) {
   const isTakeout = order.orderType === "TAKEOUT";
   const shortOrderNo = order.orderNo.split("-").at(-1) ?? order.orderNo;
@@ -708,6 +786,17 @@ function StaffOrderCard({
           >
             <XCircle className="h-4 w-4" />
             {canceling ? "취소 중" : "주문 취소"}
+          </button>
+        ) : null}
+        {order.status === "COMPLETED" ? (
+          <button
+            type="button"
+            disabled={refunding}
+            onClick={onRefund}
+            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border border-red-300 bg-red-50 px-3 text-sm font-bold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <XCircle className="h-4 w-4" />
+            {refunding ? "환불 중" : "환불"}
           </button>
         ) : null}
       </div>

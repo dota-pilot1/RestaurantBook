@@ -50,4 +50,6 @@ export const orderApi = {
     api
       .patch<Order>(`/api/operations/orders/${orderId}/cancel`, { cancelMessage })
       .then((r) => r.data),
+  refundOperationOrder: (orderId: number) =>
+    api.patch<Order>(`/api/operations/orders/${orderId}/refund`).then((r) => r.data),
 };

@@ -15,6 +15,7 @@ public record OrderItemResponse(
         int unitPrice,
         int quantity,
         int lineTotal,
+        boolean requiresCooking,
         List<OrderItemComponentResponse> components
 ) {
     public static OrderItemResponse from(OrderItem item) {
@@ -27,6 +28,7 @@ public record OrderItemResponse(
                 item.getUnitPrice(),
                 item.getQuantity(),
                 item.getLineTotal(),
+                item.isRequiresCooking(),
                 item.getComponents().stream()
                         .sorted(Comparator.comparingInt(com.cj.restaurantbook.order.domain.OrderItemComponent::getDisplayOrder))
                         .map(OrderItemComponentResponse::from)

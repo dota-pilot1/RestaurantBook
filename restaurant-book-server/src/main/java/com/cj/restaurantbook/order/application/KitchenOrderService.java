@@ -41,6 +41,11 @@ public class KitchenOrderService {
     public OrderResponse accept(Long orderId) {
         Order order = findOrder(orderId);
         transition(order, Order::accept);
+        if (!order.requiresCooking()) {
+            transition(order, Order::markReady);
+            orderBroadcaster.broadcastOrderChangedAfterCommit("READY", order.getId(), order.getTableName());
+            return OrderResponse.from(order);
+        }
         orderBroadcaster.broadcastOrderChangedAfterCommit("ACCEPTED", order.getId(), order.getTableName());
         return OrderResponse.from(order);
     }

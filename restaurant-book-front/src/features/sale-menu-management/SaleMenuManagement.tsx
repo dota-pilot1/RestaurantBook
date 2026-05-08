@@ -272,6 +272,7 @@ function toUpdateBody(menu: SaleMenu, patch: Partial<SaleMenu>) {
     visible: patch.visible ?? menu.visible,
     availableDineIn: patch.availableDineIn ?? menu.availableDineIn,
     availableTakeout: patch.availableTakeout ?? menu.availableTakeout,
+    requiresCooking: patch.requiresCooking ?? menu.requiresCooking,
     displayOrder: menu.displayOrder,
   };
 }

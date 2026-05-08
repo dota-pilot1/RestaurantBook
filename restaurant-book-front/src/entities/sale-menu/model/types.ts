@@ -13,6 +13,7 @@ export type SaleMenu = {
   visible: boolean;
   availableDineIn: boolean;
   availableTakeout: boolean;
+  requiresCooking: boolean;
   displayOrder: number;
   createdAt: string;
   updatedAt: string;
