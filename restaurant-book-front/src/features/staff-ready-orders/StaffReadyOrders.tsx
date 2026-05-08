@@ -13,7 +13,6 @@ import {
   Package,
   PhoneCall,
   ReceiptText,
-  Settings,
   Store,
   XCircle,
 } from "lucide-react";
@@ -33,7 +32,7 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { NoticeDialog } from "@/shared/ui/NoticeDialog";
-import { Switch } from "@/shared/ui/Switch";
+import { OperationalHeaderSettings } from "@/shared/ui/OperationalHeaderSettings";
 import { RequireRole } from "@/widgets/guards/RequireRole";
 
 type StaffStatus = Extract<OrderStatus, "ACCEPTED" | "COOKING" | "READY" | "COMPLETED">;
@@ -105,6 +104,12 @@ const headerTileClass =
 const isStaffStatus = (status: OrderStatus): status is StaffStatus =>
   status === "ACCEPTED" || status === "COOKING" || status === "READY" || status === "COMPLETED";
 
+const staffHeaderNavStore = {
+  get: getStaffHeaderNavVisible,
+  set: setStaffHeaderNavVisible,
+  subscribe: subscribeStaffHeaderNavVisibility,
+};
+
 const paymentMethods: Array<{
   method: PaymentMethod;
   label: string;
@@ -166,9 +171,6 @@ function StaffOrderBoardContent() {
   const [paymentTarget, setPaymentTarget] = useState<Order | null>(null);
   const [refundTarget, setRefundTarget] = useState<Order | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>("CARD");
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [headerNavVisible, setHeaderNavVisible] = useState(true);
-  const [draftHeaderNavVisible, setDraftHeaderNavVisible] = useState(true);
   useOperationalOrdersWebSocket();
   useOperationsStaffCallsWebSocket(true, (payload) => {
     if (payload.reason === "CREATED") {
@@ -193,16 +195,6 @@ function StaffOrderBoardContent() {
       document.removeEventListener("visibilitychange", refetchBoard);
     };
   }, [queryClient]);
-
-  useEffect(() => {
-    const syncHeaderNavVisible = () => {
-      const visible = getStaffHeaderNavVisible();
-      setHeaderNavVisible(visible);
-      setDraftHeaderNavVisible(visible);
-    };
-    syncHeaderNavVisible();
-    return subscribeStaffHeaderNavVisibility(syncHeaderNavVisible);
-  }, []);
 
   const {
     data: orders = [],
@@ -399,21 +391,15 @@ function StaffOrderBoardContent() {
               <SummaryTile label="진행 중" value={`${counts.ACCEPTED + counts.COOKING}건`} />
               <SummaryTile label="결제 대기" value={`${counts.READY}건`} />
               <SummaryTile label="결제 완료" value={`${counts.COMPLETED}건`} />
-              <button
-                type="button"
-                aria-label="직원 화면 설정"
-                title="직원 화면 설정"
-                onClick={() => {
-                  setDraftHeaderNavVisible(headerNavVisible);
-                  setSettingsOpen(true);
-                }}
-                className={cn(
-                  headerTileClass,
-                  "text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-                )}
-              >
-                <Settings className="h-5 w-5" />
-              </button>
+              <OperationalHeaderSettings
+                store={staffHeaderNavStore}
+                screenName="직원"
+                description="직원 주문 보드에서 사용하는 화면 표시 방식을 조정합니다."
+                hiddenDescription="끄면 직원 화면에서 상단 헤더가 숨겨집니다."
+                buttonClassName={cn(headerTileClass, "gap-1 px-0 text-muted-foreground")}
+                iconClassName="h-4 w-4"
+                buttonLabel="설정"
+              />
             </div>
           </div>
         </section>
@@ -479,56 +465,6 @@ function StaffOrderBoardContent() {
           })}
         </section>
       </div>
-
-      {settingsOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
-        >
-          <div className="w-full max-w-md rounded-lg border border-border bg-background p-5 shadow-xl">
-            <h2 className="text-lg font-black">직원 화면 설정</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              직원 주문 보드에서 사용하는 화면 표시 방식을 조정합니다.
-            </p>
-
-            <div className="mt-5 flex items-center justify-between gap-4 rounded-md border border-border bg-muted/30 p-4">
-              <div>
-                <p className="text-sm font-black">헤더 네비 출력 여부</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  끄면 직원 화면에서 상단 헤더가 숨겨집니다.
-                </p>
-              </div>
-              <Switch
-                checked={draftHeaderNavVisible}
-                onCheckedChange={setDraftHeaderNavVisible}
-                aria-label="직원 헤더 네비 출력 여부"
-              />
-            </div>
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setSettingsOpen(false)}
-                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setStaffHeaderNavVisible(draftHeaderNavVisible);
-                  setSettingsOpen(false);
-                  toast.success("직원 화면 설정을 저장했습니다.");
-                }}
-                className="rounded-md bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground hover:opacity-90"
-              >
-                저장
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       <NoticeDialog
         open={cancelNoticeDialogOpen}
