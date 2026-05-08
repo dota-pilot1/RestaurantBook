@@ -191,8 +191,10 @@ export default function GuidePage() {
       </div>
 
       {/* Admin Menu List */}
-      <section className="mt-12 rounded-xl border border-border px-5 py-5">
-        <h2 className="mb-4 text-sm font-semibold text-foreground">{t("admin.summary")}</h2>
+      <section className="relative mt-12 rounded-xl border border-border px-5 pb-5 pt-8">
+        <span className="absolute left-4 top-0 -translate-y-1/2 rounded-full border border-border bg-background px-3 py-0.5 text-xs font-semibold text-muted-foreground">
+          {t("admin.summary")}
+        </span>
         <ul className="grid gap-2 sm:grid-cols-2">
           {adminLinks.map((link) => (
             <li key={link.href}>
