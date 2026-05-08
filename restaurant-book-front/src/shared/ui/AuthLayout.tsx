@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Sparkles, Image as ImageIcon } from "lucide-react";
+import { Image as ImageIcon, Utensils } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { siteSettingApi } from "@/entities/site-setting/api/siteSettingApi";
@@ -24,50 +24,23 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
   const heroImageUrl = siteSetting?.heroImageUrl ?? null;
 
   return (
-    <main className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center px-4 py-10 sm:py-14 bg-gradient-to-br from-muted/40 via-background to-accent/10">
+    <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-muted/20 px-4 py-10 sm:py-14">
       <div className="relative w-full max-w-6xl">
-        {/* Soft outer glow ring */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -inset-2 rounded-[1.75rem] bg-gradient-to-br from-primary/10 via-transparent to-accent/10 blur-xl"
-        />
-
-        {/* Card = the "booklet" — items-stretch makes both pages equal height */}
-        <div className="relative grid lg:grid-cols-[3fr_2fr] items-stretch rounded-2xl border-2 border-border bg-background shadow-[0_24px_70px_-18px_rgba(0,0,0,0.25)] ring-1 ring-black/5 overflow-hidden lg:min-h-[720px]">
+        <div className="relative grid items-stretch overflow-hidden rounded-2xl border border-border bg-background shadow-[0_24px_70px_-18px_rgba(0,0,0,0.22)] ring-1 ring-black/5 lg:min-h-[680px] lg:grid-cols-[3fr_2fr]">
           <span
             aria-hidden
-            className="hidden lg:block absolute top-6 bottom-6 left-1/2 w-px bg-border"
-          />
-          <span
-            aria-hidden
-            className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-primary/70 via-primary to-primary/70"
-          />
-          <span
-            aria-hidden
-            className="absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-accent/60 via-accent to-accent/60"
+            className="absolute bottom-8 top-8 hidden w-px bg-border lg:left-[60%] lg:block"
           />
 
-          {/* Left page — brand + hero image */}
-          <section className="relative hidden lg:flex h-full flex-col gap-5 overflow-hidden bg-gradient-to-br from-primary/10 via-secondary/30 to-accent/20 p-7">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -top-16 -left-16 h-56 w-56 rounded-full bg-primary/20 blur-3xl"
-            />
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -bottom-20 -right-10 h-64 w-64 rounded-full bg-accent/30 blur-3xl"
-            />
-
-            {/* Brand */}
-            <div className="relative flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-                <Sparkles className="h-3.5 w-3.5" />
+          <section className="hidden h-full flex-col justify-between gap-8 bg-muted/10 p-8 lg:flex">
+            <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground">
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                <Utensils className="h-4 w-4" />
               </span>
               RestaurantBook
             </div>
 
-            {/* Hero image (from site-settings) or placeholder */}
-            <div className="relative flex-1 overflow-hidden rounded-xl border-2 border-dashed border-border/80 bg-background/50 backdrop-blur-sm">
+            <div className="relative overflow-hidden rounded-xl border border-border bg-background shadow-sm">
               {heroImageUrl ? (
                 <Image
                   src={heroImageUrl}
@@ -75,7 +48,7 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
                   fill
                   unoptimized
                   sizes="(max-width: 1024px) 100vw, 512px"
-                  className="object-contain"
+                  className="object-cover"
                 />
               ) : (
                 <>
@@ -90,9 +63,10 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
                   </span>
                 </>
               )}
+              <div className="aspect-[4/3]" />
             </div>
 
-            <p className="relative text-[10px] text-muted-foreground">
+            <p className="text-[10px] text-muted-foreground">
               © {new Date().getFullYear()} RestaurantBook
             </p>
           </section>
