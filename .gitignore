@@ -52,6 +52,7 @@ restaurant-book-server/src/main/resources/application-*.local.yml
 
 # Deployment docs (contains PEM keys and secrets)
 docs-for-배포 계획/
+docs-for-배포 가이드/
 
 # Secrets / certificates
 *.pem
