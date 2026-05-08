@@ -24,8 +24,12 @@ import { orderApi } from "@/entities/order/api/orderApi";
 import { useCustomerOrdersWebSocket } from "@/entities/order/api/orderRealtime";
 import type { Order } from "@/entities/order/model/types";
 import { saleMenuCategoryApi } from "@/entities/sale-menu-category/api/saleMenuCategoryApi";
+import { staffCallApi } from "@/entities/staff-call/api/staffCallApi";
+import { useCustomerStaffCallsWebSocket } from "@/entities/staff-call/api/staffCallRealtime";
+import type { StaffCall, StaffCallType } from "@/entities/staff-call/model/types";
 import { toast, toastError } from "@/shared/lib/toast";
 import { tableSessionStorage } from "@/shared/lib/tableSessionStorage";
+import { cn } from "@/shared/lib/utils";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { NoticeDialog } from "@/shared/ui/NoticeDialog";
 
@@ -129,6 +133,14 @@ const orderStatusCardClass: Record<Order["status"], string> = {
   CANCELED: "border-red-300 bg-background shadow-[inset_4px_0_0_rgb(239_68_68)]",
 };
 
+const staffCallTypeLabel: Record<StaffCallType, string> = {
+  GENERAL: "일반 호출",
+  REFILL: "물/반찬 리필",
+  QUESTION: "메뉴 문의",
+  PAYMENT: "결제 도움",
+  OTHER: "기타",
+};
+
 const toCustomerOrderType = (orderType: KioskOrderType): CustomerOrderType =>
   orderType === "dine-in" ? "DINE_IN" : "TAKEOUT";
 
@@ -157,6 +169,9 @@ export function KioskHome() {
   const [activeCancelNotice, setActiveCancelNotice] = useState<CancelNotice | null>(null);
   const [orderConfirmOpen, setOrderConfirmOpen] = useState(false);
   const [tableName, setTableName] = useState("");
+  const [staffCallDialogOpen, setStaffCallDialogOpen] = useState(false);
+  const [staffCallType, setStaffCallType] = useState<StaffCallType>("GENERAL");
+  const [staffCallMessage, setStaffCallMessage] = useState("");
 
   const customerOrderType = toCustomerOrderType(orderType);
 
@@ -187,6 +202,11 @@ export function KioskHome() {
     setActiveCancelNotice(notice);
     playCancelAlertSound();
     toast.error("주문 취소 안내가 도착했습니다.");
+  });
+  useCustomerStaffCallsWebSocket(tableName, tableName.trim().length > 0, (payload) => {
+    if (payload.reason === "ACKNOWLEDGED") {
+      toast.success("직원이 호출을 확인했습니다.");
+    }
   });
 
   useEffect(() => {
@@ -268,6 +288,15 @@ export function KioskHome() {
     queryFn: () => orderApi.getCanceledCustomerOrders(tableName),
     enabled: tableName.trim().length > 0,
     refetchInterval: 5000,
+  });
+
+  const {
+    data: activeStaffCalls = [],
+  } = useQuery({
+    queryKey: ["customer-active-staff-calls", tableName],
+    queryFn: () => staffCallApi.getActiveCustomerCalls(tableName),
+    enabled: tableName.trim().length > 0,
+    refetchInterval: 10000,
   });
 
   const cartItems = useMemo(
@@ -372,6 +401,36 @@ export function KioskHome() {
     },
   });
 
+  const createStaffCallMutation = useMutation({
+    mutationFn: () =>
+      staffCallApi.createCustomerCall({
+        tableName,
+        type: staffCallType,
+        message: staffCallMessage.trim() || null,
+      }),
+    onSuccess: () => {
+      setStaffCallDialogOpen(false);
+      setStaffCallMessage("");
+      setStaffCallType("GENERAL");
+      queryClient.invalidateQueries({ queryKey: ["customer-active-staff-calls", tableName] });
+      toast.success("직원을 호출했습니다.");
+    },
+    onError: (e) => {
+      toastError(e, "직원을 호출하지 못했습니다.");
+    },
+  });
+
+  const cancelStaffCallMutation = useMutation({
+    mutationFn: (callId: number) => staffCallApi.cancelCustomerCall(callId, { tableName }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customer-active-staff-calls", tableName] });
+      toast.success("호출을 취소했습니다.");
+    },
+    onError: (e) => {
+      toastError(e, "호출을 취소하지 못했습니다.");
+    },
+  });
+
   const acknowledgeVisibleCancelNotices = () => {
     setDismissedCanceledOrderIds((current) => {
       const next = new Set(current);
@@ -406,6 +465,18 @@ export function KioskHome() {
     }
 
     setOrderConfirmOpen(true);
+  };
+
+  const openStaffCallDialog = () => {
+    if (!tableName.trim()) {
+      toast.error("테이블명이 설정되어야 호출할 수 있습니다.");
+      return;
+    }
+    if (activeStaffCalls.length > 0) {
+      toast.info("이미 호출이 진행 중입니다.");
+      return;
+    }
+    setStaffCallDialogOpen(true);
   };
 
   const submitOrder = () => {
@@ -719,6 +790,28 @@ export function KioskHome() {
                     </p>
                   </div>
 
+                  {activeStaffCalls.length > 0 ? (
+                    <div className="rounded-md border border-rose-300 bg-rose-50 p-3">
+                      <div className="flex items-center gap-2 text-rose-800">
+                        <Phone className="h-4 w-4" />
+                        <p className="text-sm font-bold">직원 호출 중</p>
+                      </div>
+                      <div className="mt-2 space-y-2">
+                        {activeStaffCalls.map((call) => (
+                          <StaffCallStatusItem
+                            key={call.id}
+                            call={call}
+                            onCancel={() => cancelStaffCallMutation.mutate(call.id)}
+                            canceling={
+                              cancelStaffCallMutation.isPending &&
+                              cancelStaffCallMutation.variables === call.id
+                            }
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
@@ -729,10 +822,16 @@ export function KioskHome() {
                     </button>
                     <button
                       type="button"
+                      onClick={openStaffCallDialog}
                       className="flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-background text-sm font-medium transition-colors hover:bg-accent"
                     >
                       <Phone className="h-4 w-4" />
                       직원 호출
+                      {activeStaffCalls.length > 0 ? (
+                        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white">
+                          {activeStaffCalls.length}
+                        </span>
+                      ) : null}
                     </button>
                   </div>
                 </div>
@@ -846,7 +945,124 @@ export function KioskHome() {
           </div>
         ) : null}
       </NoticeDialog>
+      {staffCallDialogOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+        >
+          <div className="w-full max-w-md rounded-lg border border-border bg-background p-5 shadow-xl">
+            <h2 className="text-lg font-black">직원 호출</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {tableName ? `${tableName}에서 직원을 호출합니다.` : "테이블명이 필요합니다."}
+            </p>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {(["GENERAL", "REFILL", "QUESTION", "PAYMENT", "OTHER"] as StaffCallType[]).map((type) => {
+                const selected = staffCallType === type;
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setStaffCallType(type)}
+                    className={cn(
+                      "h-12 rounded-md border text-sm font-bold transition-colors",
+                      selected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background hover:bg-accent",
+                    )}
+                  >
+                    {staffCallTypeLabel[type]}
+                  </button>
+                );
+              })}
+            </div>
+
+            <textarea
+              value={staffCallMessage}
+              onChange={(event) => setStaffCallMessage(event.target.value)}
+              rows={3}
+              maxLength={200}
+              placeholder={
+                staffCallType === "OTHER"
+                  ? "필요한 도움을 입력해주세요. (필수)"
+                  : "추가 메시지를 입력해주세요. (선택)"
+              }
+              className="mt-3 w-full resize-none rounded-md border border-border bg-background p-3 text-sm outline-none focus:border-primary"
+            />
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={createStaffCallMutation.isPending}
+                onClick={() => {
+                  setStaffCallDialogOpen(false);
+                  setStaffCallMessage("");
+                  setStaffCallType("GENERAL");
+                }}
+                className="h-10 rounded-md border border-border px-4 text-sm font-bold hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                닫기
+              </button>
+              <button
+                type="button"
+                disabled={
+                  createStaffCallMutation.isPending ||
+                  !tableName.trim() ||
+                  (staffCallType === "OTHER" && !staffCallMessage.trim())
+                }
+                onClick={() => createStaffCallMutation.mutate()}
+                className="h-10 rounded-md bg-primary px-4 text-sm font-bold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {createStaffCallMutation.isPending ? "호출 중" : "호출하기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
+  );
+}
+
+function StaffCallStatusItem({
+  call,
+  onCancel,
+  canceling,
+}: {
+  call: StaffCall;
+  onCancel: () => void;
+  canceling: boolean;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 5000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const elapsedSec = Math.max(0, Math.floor((now - new Date(call.createdAt).getTime()) / 1000));
+  const elapsedLabel =
+    elapsedSec < 60 ? `${elapsedSec}초 전` : `${Math.floor(elapsedSec / 60)}분 전`;
+
+  return (
+    <div className="rounded-md bg-background p-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-rose-800">
+          {staffCallTypeLabel[call.type]} · {elapsedLabel}
+        </p>
+        <button
+          type="button"
+          disabled={canceling}
+          onClick={onCancel}
+          className="rounded-md border border-rose-200 bg-background px-2 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {canceling ? "취소 중" : "호출 취소"}
+        </button>
+      </div>
+      {call.message ? (
+        <p className="mt-1 text-xs text-rose-900">{call.message}</p>
+      ) : null}
+    </div>
   );
 }
 
