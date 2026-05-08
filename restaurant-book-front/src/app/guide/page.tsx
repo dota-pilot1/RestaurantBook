@@ -190,27 +190,22 @@ export default function GuidePage() {
         })}
       </div>
 
-      {/* Admin Accordion */}
-      <details className="mt-12 rounded-xl border border-border">
-        <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 font-medium text-sm text-foreground hover:bg-accent/50 rounded-xl transition-colors">
-          {t("admin.summary")}
-          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[open]_&]:rotate-180" />
-        </summary>
-        <div className="border-t border-border px-5 py-4">
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {adminLinks.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className="text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline transition-colors"
-                >
-                  {t(link.labelKey)}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </details>
+      {/* Admin Menu List */}
+      <section className="mt-12 rounded-xl border border-border px-5 py-5">
+        <h2 className="mb-4 text-sm font-semibold text-foreground">{t("admin.summary")}</h2>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {adminLinks.map((link) => (
+            <li key={link.href}>
+              <Link
+                href={link.href}
+                className="text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline transition-colors"
+              >
+                {t(link.labelKey)}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }
