@@ -833,8 +833,8 @@ export function KioskHome() {
                       type="button"
                       className="flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-background text-sm font-medium transition-colors hover:bg-accent"
                     >
-                      <ReceiptText className="h-4 w-4" />
-                      주문 확인
+                      <Utensils className="h-4 w-4" />
+                      물/수저 요청
                     </button>
                     <button
                       type="button"
