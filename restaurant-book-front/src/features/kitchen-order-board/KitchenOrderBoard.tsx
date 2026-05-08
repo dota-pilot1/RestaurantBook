@@ -13,6 +13,7 @@ import {
   Package,
   ReceiptText,
   RotateCcw,
+  Settings,
   Store,
   Utensils,
   XCircle,
@@ -22,8 +23,14 @@ import { useOperationalOrdersWebSocket } from "@/entities/order/api/orderRealtim
 import type { Order, OrderStatus } from "@/entities/order/model/types";
 import { useAuth } from "@/entities/user/model/authStore";
 import { toast, toastError } from "@/shared/lib/toast";
+import {
+  getKitchenHeaderNavVisible,
+  setKitchenHeaderNavVisible,
+  subscribeKitchenHeaderNavVisibility,
+} from "@/shared/lib/kitchenHeaderNavVisibility";
 import { cn } from "@/shared/lib/utils";
 import { NoticeDialog } from "@/shared/ui/NoticeDialog";
+import { Switch } from "@/shared/ui/Switch";
 import { RequireRole } from "@/widgets/guards/RequireRole";
 
 type KitchenStatus = Extract<OrderStatus, "RECEIVED" | "ACCEPTED" | "COOKING" | "READY">;
@@ -122,6 +129,9 @@ function KitchenOrderBoardContent() {
   const [cancelNoticeDialogOpen, setCancelNoticeDialogOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<(Order & { status: KitchenStatus }) | null>(null);
   const [cancelMessage, setCancelMessage] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [headerNavVisible, setHeaderNavVisible] = useState(true);
+  const [draftHeaderNavVisible, setDraftHeaderNavVisible] = useState(true);
 
   useOperationalOrdersWebSocket(true, (payload) => {
     if (payload.reason !== "CANCELED") {
@@ -154,6 +164,16 @@ function KitchenOrderBoardContent() {
       document.removeEventListener("visibilitychange", refetchBoard);
     };
   }, [queryClient]);
+
+  useEffect(() => {
+    const syncHeaderNavVisible = () => {
+      const visible = getKitchenHeaderNavVisible();
+      setHeaderNavVisible(visible);
+      setDraftHeaderNavVisible(visible);
+    };
+    syncHeaderNavVisible();
+    return subscribeKitchenHeaderNavVisibility(syncHeaderNavVisible);
+  }, []);
 
   const {
     data: orders = [],
@@ -366,6 +386,18 @@ function KitchenOrderBoardContent() {
               <RotateCcw className="h-4 w-4" />
               새로고침
             </button>
+            <button
+              type="button"
+              aria-label="주방 화면 설정"
+              title="주방 화면 설정"
+              onClick={() => {
+                setDraftHeaderNavVisible(headerNavVisible);
+                setSettingsOpen(true);
+              }}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
           </div>
         </section>
 
@@ -430,6 +462,55 @@ function KitchenOrderBoardContent() {
           })}
         </section>
       </div>
+      {settingsOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+        >
+          <div className="w-full max-w-md rounded-lg border border-border bg-background p-5 shadow-xl">
+            <h2 className="text-lg font-black">주방 화면 설정</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              주방 보드에서 사용하는 화면 표시 방식을 조정합니다.
+            </p>
+
+            <div className="mt-5 flex items-center justify-between gap-4 rounded-md border border-border bg-muted/30 p-4">
+              <div>
+                <p className="text-sm font-black">헤더 네비 출력 여부</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  끄면 주방 화면에서 상단 헤더가 숨겨집니다.
+                </p>
+              </div>
+              <Switch
+                checked={draftHeaderNavVisible}
+                onCheckedChange={setDraftHeaderNavVisible}
+                aria-label="주방 헤더 네비 출력 여부"
+              />
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(false)}
+                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setKitchenHeaderNavVisible(draftHeaderNavVisible);
+                  setSettingsOpen(false);
+                  toast.success("주방 화면 설정을 저장했습니다.");
+                }}
+                className="rounded-md bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground hover:opacity-90"
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <NoticeDialog
         open={cancelNoticeDialogOpen}
         title="취소 알림"

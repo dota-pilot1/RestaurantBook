@@ -1,16 +1,35 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useEffect } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical, Plus, Trash2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
+import { Controller, type Control, type FieldErrors, type UseFormRegister, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { saleMenuApi } from "@/entities/sale-menu/api/saleMenuApi";
-import type { SaleMenuStatus } from "@/entities/sale-menu/model/types";
+import type { SaleMenu, SaleMenuStatus } from "@/entities/sale-menu/model/types";
 import { saleMenuSetApi } from "@/entities/sale-menu-set/api/saleMenuSetApi";
 import type { SaleMenuSet } from "@/entities/sale-menu-set/model/types";
 import { toast, toastError } from "@/shared/lib/toast";
+import { cn } from "@/shared/lib/utils";
 import { SelectInput } from "@/shared/ui/SelectInput";
 import { Switch } from "@/shared/ui/Switch";
 import { SaleMenuImageField } from "@/features/sale-menu-management/SaleMenuImageField";
@@ -52,7 +71,11 @@ export function SaleMenuSetFormDialog({ open, saleMenuSet, onClose }: Props) {
     resolver: zodResolver(schema),
     defaultValues: defaultValues(),
   });
-  const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  const { fields, append, remove, move } = useFieldArray({ control, name: "items" });
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
   const imageUrl = useWatch({ control, name: "imageUrl" });
   const visible = useWatch({ control, name: "visible" });
   const availableDineIn = useWatch({ control, name: "availableDineIn" });
@@ -76,7 +99,7 @@ export function SaleMenuSetFormDialog({ open, saleMenuSet, onClose }: Props) {
       availableDineIn: saleMenuSet.availableDineIn,
       availableTakeout: saleMenuSet.availableTakeout,
       displayOrder: saleMenuSet.displayOrder,
-      items: saleMenuSet.items.map((item) => ({
+      items: [...saleMenuSet.items].sort(compareItemOrder).map((item) => ({
         saleMenuId: item.saleMenu.id,
         quantity: item.quantity,
         displayOrder: item.displayOrder,
@@ -96,10 +119,10 @@ export function SaleMenuSetFormDialog({ open, saleMenuSet, onClose }: Props) {
         availableDineIn: values.availableDineIn,
         availableTakeout: values.availableTakeout,
         displayOrder: values.displayOrder,
-        items: values.items.map((item) => ({
+        items: values.items.map((item, index) => ({
           saleMenuId: item.saleMenuId,
           quantity: item.quantity,
-          displayOrder: item.displayOrder,
+          displayOrder: index,
         })),
       };
       return isEdit ? saleMenuSetApi.update(saleMenuSet.id, body) : saleMenuSetApi.create(body);
@@ -112,12 +135,33 @@ export function SaleMenuSetFormDialog({ open, saleMenuSet, onClose }: Props) {
     onError: (e) => toastError(e, "저장에 실패했습니다."),
   });
 
+  const handleItemDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = fields.findIndex((field) => field.id === active.id);
+    const newIndex = fields.findIndex((field) => field.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    move(oldIndex, newIndex);
+  };
+
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg border border-border bg-background p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
-        <h2 className="mb-4 text-base font-semibold">{isEdit ? "세트 메뉴 수정" : "세트 메뉴 추가"}</h2>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-base font-semibold">{isEdit ? "세트 메뉴 수정" : "세트 메뉴 추가"}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="닫기"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
         <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="세트명" error={errors.name?.message}>
@@ -168,6 +212,9 @@ export function SaleMenuSetFormDialog({ open, saleMenuSet, onClose }: Props) {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-semibold">구성 품목</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  왼쪽 핸들을 드래그해 표시 순서를 바꾸고, 수량은 세트 1개에 포함되는 개수로 입력합니다.
+                </p>
                 {errors.items?.message && <p className="mt-1 text-xs text-destructive">{errors.items.message}</p>}
               </div>
               <button
@@ -181,56 +228,33 @@ export function SaleMenuSetFormDialog({ open, saleMenuSet, onClose }: Props) {
             </div>
 
             <div className="space-y-2">
-              {fields.map((field, index) => (
-                <div key={field.id} className="grid gap-2 rounded-md border border-border p-2 md:grid-cols-[1fr_96px_96px_36px]">
-                  <Controller
-                    control={control}
-                    name={`items.${index}.saleMenuId`}
-                    render={({ field }) => (
-                      <SelectInput
-                        value={field.value ? field.value.toString() : ""}
-                        onValueChange={(value) => field.onChange(value ? Number(value) : 0)}
-                        options={[
-                          { value: "", label: "단품 메뉴 선택" },
-                          ...saleMenus.map((menu) => ({
-                            value: menu.id.toString(),
-                            label: `${menu.name} (${menu.price.toLocaleString("ko-KR")}원)`,
-                          })),
-                        ]}
-                        invalid={!!errors.items?.[index]?.saleMenuId}
-                        aria-label="구성 단품 메뉴"
-                      />
-                    )}
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    aria-label="수량"
-                    {...register(`items.${index}.quantity`, { valueAsNumber: true })}
-                    className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    aria-label="정렬 순서"
-                    {...register(`items.${index}.displayOrder`, { valueAsNumber: true })}
-                    className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => remove(index)}
-                    className="inline-flex h-10 w-9 items-center justify-center rounded-md border border-destructive/50 text-destructive hover:bg-destructive/10"
-                    aria-label="구성 품목 삭제"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                  {(errors.items?.[index]?.saleMenuId || errors.items?.[index]?.quantity || errors.items?.[index]?.displayOrder) && (
-                    <p className="text-xs text-destructive md:col-span-4">
-                      {errors.items?.[index]?.saleMenuId?.message || errors.items?.[index]?.quantity?.message || errors.items?.[index]?.displayOrder?.message}
-                    </p>
-                  )}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                modifiers={[restrictToVerticalAxis]}
+                onDragEnd={handleItemDragEnd}
+              >
+                <div className="hidden gap-2 px-2 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[40px_minmax(0,1fr)_112px_40px]">
+                  <span />
+                  <span>단품 메뉴</span>
+                  <span>수량</span>
+                  <span />
                 </div>
-              ))}
+                <SortableContext items={fields.map((field) => field.id)} strategy={verticalListSortingStrategy}>
+                  {fields.map((field, index) => (
+                    <SortableSetItemRow
+                      key={field.id}
+                      id={field.id}
+                      index={index}
+                      control={control}
+                      register={register}
+                      errors={errors}
+                      saleMenus={saleMenus}
+                      onRemove={() => remove(index)}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
             </div>
           </section>
 
@@ -271,6 +295,102 @@ function Field({ label, error, children }: { label: string; error?: string; chil
   );
 }
 
+function SortableSetItemRow({
+  id,
+  index,
+  control,
+  register,
+  errors,
+  saleMenus,
+  onRemove,
+}: {
+  id: string;
+  index: number;
+  control: Control<FormValues>;
+  register: UseFormRegister<FormValues>;
+  errors: FieldErrors<FormValues>;
+  saleMenus: SaleMenu[];
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  const itemErrors = errors.items?.[index];
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "grid items-center gap-2 rounded-md border border-border bg-background p-2 md:grid-cols-[40px_minmax(0,1fr)_112px_40px]",
+        isDragging && "relative z-10 shadow-md",
+      )}
+    >
+      <button
+        type="button"
+        className="inline-flex h-10 w-10 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+        aria-label="구성 품목 순서 변경"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <Controller
+        control={control}
+        name={`items.${index}.saleMenuId`}
+        render={({ field }) => (
+          <div className="space-y-1 md:space-y-0">
+            <span className="text-xs font-medium text-muted-foreground md:hidden">단품 메뉴</span>
+            <SelectInput
+              value={field.value ? field.value.toString() : ""}
+              onValueChange={(value) => field.onChange(value ? Number(value) : 0)}
+              options={[
+                { value: "", label: "단품 메뉴 선택" },
+                ...saleMenus.map((menu) => ({
+                  value: menu.id.toString(),
+                  label: `${menu.name} (${menu.price.toLocaleString("ko-KR")}원)`,
+                })),
+              ]}
+              invalid={!!itemErrors?.saleMenuId}
+              aria-label="구성 단품 메뉴"
+            />
+          </div>
+        )}
+      />
+      <div className="space-y-1 md:space-y-0">
+        <span className="text-xs font-medium text-muted-foreground md:hidden">수량</span>
+        <div className="relative">
+          <input
+            type="number"
+            min={1}
+            aria-label="세트 1개당 수량"
+            {...register(`items.${index}.quantity`, { valueAsNumber: true })}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 pr-8 text-sm outline-none focus:ring-2 focus:ring-ring"
+          />
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+            개
+          </span>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-destructive/50 text-destructive hover:bg-destructive/10"
+        aria-label="구성 품목 삭제"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+      {(itemErrors?.saleMenuId || itemErrors?.quantity || itemErrors?.displayOrder) && (
+        <p className="text-xs text-destructive md:col-span-4">
+          {itemErrors.saleMenuId?.message || itemErrors.quantity?.message || itemErrors.displayOrder?.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
     <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
@@ -278,4 +398,8 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
       <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />
     </div>
   );
+}
+
+function compareItemOrder(a: SaleMenuSet["items"][number], b: SaleMenuSet["items"][number]) {
+  return a.displayOrder - b.displayOrder || a.id - b.id;
 }

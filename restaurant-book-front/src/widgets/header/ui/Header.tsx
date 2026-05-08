@@ -39,6 +39,12 @@ import { NavLink } from "@/shared/ui/NavLink";
 import { ThemeSwitcher } from "@/shared/ui/theme/ThemeSwitcher";
 import { LanguageSelect } from "@/shared/ui/LanguageSelect";
 import { tableSessionStorage } from "@/shared/lib/tableSessionStorage";
+import {
+  getKitchenHeaderNavVisible,
+  getStaffHeaderNavVisible,
+  subscribeKitchenHeaderNavVisibility,
+  subscribeStaffHeaderNavVisibility,
+} from "@/shared/lib/kitchenHeaderNavVisibility";
 import { TablePickerDialog } from "@/features/table-picker/TablePickerDialog";
 
 function buildTree(flat: NavigationMenuRecord[], userRole: string | null): NavigationMenuItem[] {
@@ -773,11 +779,29 @@ export function Header() {
   const pathname = usePathname();
   const [tableName, setTableName] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [kitchenHeaderNavVisible, setKitchenHeaderNavVisibleState] = useState(true);
+  const [staffHeaderNavVisible, setStaffHeaderNavVisibleState] = useState(true);
 
   useEffect(() => {
     const syncTableName = () => setTableName(tableSessionStorage.getTableName());
     syncTableName();
     return tableSessionStorage.subscribe(syncTableName);
+  }, []);
+
+  useEffect(() => {
+    const syncKitchenHeaderNavVisible = () => {
+      setKitchenHeaderNavVisibleState(getKitchenHeaderNavVisible());
+    };
+    syncKitchenHeaderNavVisible();
+    return subscribeKitchenHeaderNavVisibility(syncKitchenHeaderNavVisible);
+  }, []);
+
+  useEffect(() => {
+    const syncStaffHeaderNavVisible = () => {
+      setStaffHeaderNavVisibleState(getStaffHeaderNavVisible());
+    };
+    syncStaffHeaderNavVisible();
+    return subscribeStaffHeaderNavVisibility(syncStaffHeaderNavVisible);
   }, []);
 
   const handleTablePick = (next: string) => {
@@ -817,8 +841,12 @@ export function Header() {
   const displayName = user?.username ?? user?.email ?? "?";
   const hideKioskHeader =
     pathname.startsWith("/customer") && siteSetting?.headerNavVisible === false;
+  const hideKitchenHeader =
+    pathname.startsWith("/kitchen") && !kitchenHeaderNavVisible;
+  const hideStaffHeader =
+    pathname.startsWith("/staff") && !staffHeaderNavVisible;
 
-  if (hideKioskHeader) {
+  if (hideKioskHeader || hideKitchenHeader || hideStaffHeader) {
     return null;
   }
 
