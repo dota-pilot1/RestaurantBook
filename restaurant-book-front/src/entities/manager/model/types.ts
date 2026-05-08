@@ -5,4 +5,5 @@ export type ManagerDashboard = {
   cookingCount: number;
   readyCount: number;
   canceledTodayCount: number;
+  pendingStaffCallCount: number;
 };

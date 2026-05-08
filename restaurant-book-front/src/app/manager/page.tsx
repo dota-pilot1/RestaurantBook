@@ -11,6 +11,7 @@ import {
   CreditCard,
   LayoutDashboard,
   PackageCheck,
+  PhoneCall,
   ReceiptText,
   ShoppingBag,
   Store,
@@ -20,6 +21,7 @@ import { managerApi } from "@/entities/manager/api/managerApi";
 import { useOperationalOrdersWebSocket } from "@/entities/order/api/orderRealtime";
 import { paymentApi } from "@/entities/payment/api/paymentApi";
 import type { PaymentMethod } from "@/entities/payment/model/types";
+import { useOperationsStaffCallsWebSocket } from "@/entities/staff-call/api/staffCallRealtime";
 import { RequireRole } from "@/widgets/guards/RequireRole";
 
 const formatPrice = (value: number) => `${value.toLocaleString("ko-KR")}원`;
@@ -46,6 +48,7 @@ export default function ManagerPage() {
 
 function ManagerDashboardContent() {
   useOperationalOrdersWebSocket();
+  useOperationsStaffCallsWebSocket();
 
   const { data: dashboard } = useQuery({
     queryKey: ["manager-dashboard"],
@@ -63,6 +66,7 @@ function ManagerDashboardContent() {
   const inProgress = receivedAndAccepted + (dashboard?.cookingCount ?? 0);
   const readyCount = dashboard?.readyCount ?? 0;
   const paymentCount = todaySales?.paymentCount ?? 0;
+  const pendingStaffCallCount = dashboard?.pendingStaffCallCount ?? 0;
 
   const flowStages = [
     { label: "접수", value: receivedAndAccepted, tone: "bg-blue-500" },
@@ -120,6 +124,14 @@ function ManagerDashboardContent() {
             delta="오늘"
             icon={ReceiptText}
             href="/sales"
+          />
+          <MetricCard
+            label="직원 호출"
+            value={`${pendingStaffCallCount}건`}
+            delta={pendingStaffCallCount > 0 ? "응대 대기" : "없음"}
+            icon={PhoneCall}
+            href="/staff"
+            tone={pendingStaffCallCount > 0 ? "alert" : undefined}
           />
         </section>
 
@@ -195,37 +207,46 @@ function MetricCard({
   delta,
   icon: Icon,
   href,
+  tone,
 }: {
   label: string;
   value: string;
   delta: string;
   icon: React.ComponentType<{ className?: string }>;
   href?: string;
+  tone?: "alert";
 }) {
+  const containerClass =
+    tone === "alert"
+      ? "rounded-lg border border-rose-300 bg-rose-50 p-4 transition-colors hover:bg-rose-100"
+      : "rounded-lg border border-border bg-background p-4 transition-colors hover:bg-accent";
+  const iconClass = tone === "alert" ? "h-4 w-4 text-rose-700" : "h-4 w-4 text-muted-foreground";
+  const deltaClass =
+    tone === "alert"
+      ? "rounded-md bg-rose-100 px-2 py-1 text-xs font-semibold text-rose-800"
+      : "rounded-md bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground";
   const content = (
     <>
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
-        <Icon className="h-4 w-4 text-muted-foreground" />
+        <Icon className={iconClass} />
       </div>
       <div className="mt-3 flex items-end justify-between gap-3">
         <strong className="text-2xl font-bold tracking-tight">{value}</strong>
-        <span className="rounded-md bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground">
-          {delta}
-        </span>
+        <span className={deltaClass}>{delta}</span>
       </div>
     </>
   );
 
   if (href) {
     return (
-      <Link href={href} className="rounded-lg border border-border bg-background p-4 transition-colors hover:bg-accent">
+      <Link href={href} className={containerClass}>
         {content}
       </Link>
     );
   }
 
-  return <div className="rounded-lg border border-border bg-background p-4">{content}</div>;
+  return <div className={containerClass}>{content}</div>;
 }
 
 function QuickButton({
