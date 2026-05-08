@@ -241,6 +241,7 @@ function StaffOrderBoardContent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["operation-orders"] });
       queryClient.invalidateQueries({ queryKey: ["operation-ready-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.refetchQueries({ queryKey: ["operation-orders"], type: "active" });
       queryClient.refetchQueries({ queryKey: ["operation-ready-orders"], type: "active" });
       setPaymentTarget(null);

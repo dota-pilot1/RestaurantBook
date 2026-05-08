@@ -30,8 +30,9 @@ public class PermissionCategorySeeder implements ApplicationRunner {
                 new CategoryDef("ROLE",       "롤",      "롤 관리 관련 권한",           2),
                 new CategoryDef("PERMISSION", "권한",    "권한 관리 관련 권한",          3),
                 new CategoryDef("DASHBOARD",  "대시보드", "대시보드 관련 권한",           4),
-                new CategoryDef("REPORT",     "리포트",  "리포트/통계 관련 권한",        5),
-                new CategoryDef("SYSTEM",     "시스템",  "시스템 설정 관련 권한",        6)
+                new CategoryDef("BOARD",      "게시판",  "게시판 관리 관련 권한",        5),
+                new CategoryDef("REPORT",     "리포트",  "리포트/통계 관련 권한",        6),
+                new CategoryDef("SYSTEM",     "시스템",  "시스템 설정 관련 권한",        7)
         );
 
         for (CategoryDef def : seeds) {

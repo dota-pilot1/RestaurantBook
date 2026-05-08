@@ -37,9 +37,12 @@ export function SelectInput({
   contentClassName,
   size = "md",
 }: SelectInputProps) {
+  const hasEmptyOption = options.some((option) => option.value === "");
+  const radixValue = value === "" && !hasEmptyOption ? "" : toRadixValue(value);
+
   return (
     <SelectPrimitive.Root
-      value={toRadixValue(value)}
+      value={radixValue}
       onValueChange={(nextValue) => onValueChange(fromRadixValue(nextValue))}
       disabled={disabled}
     >

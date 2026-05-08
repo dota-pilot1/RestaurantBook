@@ -7,16 +7,25 @@
 단, BoardConfig 구조로 관리자가 추후에 FAQ·이벤트·매장후기 등을 추가할 수 있게 확장 가능하게 둠.
 
 ### Q2. 작성 권한
-**A: 공지 = 관리자만 / 문의 = 테이블 익명 고객도 작성.**
+**A: 공지 = 관리자만 / 문의 = 로그인 사용자만 작성.**
 - 공지: `allowCustomerWrite=false`, 관리자만 게시·핀·삭제.
-- 문의: `allowCustomerWrite=true`. 비로그인 익명 작성 허용. 이름·연락처·게스트 비밀번호(4자리 숫자) 입력. tableId가 있으면 자동 부착.
+- 문의: `allowCustomerWrite=true`. 로그인 사용자만 작성 가능. 비로그인/테이블 익명 고객은 게시판 자체를 보지 않아도 되는 정책으로 확정.
 
 ### Q3. 노출 위치
 **A: 헤더 네비 중간(=상단 헤더 가운데 영역) "게시판" 드롭다운.**
-누구에게나 보임. 자식으로 공지/문의 두 항목.
+로그인 사용자에게만 보임. 자식으로 공지/문의 두 항목.
 
 ### Q4. BeautyBook 코드 재활용
-**A: 참고는 하되 그대로 베끼지 않음.** RestaurantBook DDD 컨벤션과 익명 작성 정책에 맞게 적응. 엔티티 분리 패턴(Board/BoardConfig/BoardComment)과 API URL 컨벤션은 동일하게 차용.
+**A: 참고는 하되 그대로 베끼지 않음.** RestaurantBook DDD 컨벤션과 로그인 사용자 작성 정책에 맞게 적응. 엔티티 분리 패턴(Board/BoardConfig/BoardComment)과 API URL 컨벤션은 동일하게 차용.
+
+## BeautyBook 참고 후 RestaurantBook 적용 차이
+
+BeautyBook의 게시판 구현은 `Board / BoardConfig / BoardComment` 구조, `BoardConfigSeeder`, 공개 목록/상세 API, 관리자 게시글 API를 참고한다. 다만 RestaurantBook에는 다음 차이가 있어 그대로 이식하지 않는다.
+
+- BeautyBook은 로그인 사용자 중심 댓글/게시글 모델이고, RestaurantBook도 MVP에서는 같은 방향으로 간다. 비로그인/테이블 익명 고객은 게시판 자체를 보지 않아도 되므로 `authorContact`, `guestPasswordHash`, `tableId`, 비밀번호 검증 API는 만들지 않는다.
+- BeautyBook은 게시판 생성 시 메뉴를 자동 동기화하지만, RestaurantBook은 이미 `NavigationMenuSeeder`와 관리자 메뉴 구조가 있으므로 MVP에서는 `notice`, `inquiry`만 헤더에 고정하고 신규 게시판은 `/boards` 카드 목록에서 노출한다.
+- BeautyBook의 첨부/S3 구조는 참고만 한다. RestaurantBook에는 이미 `common/upload`가 있으므로 신규 생성하지 않는다.
+- BeautyBook API는 상세/수정 시 `id` 중심이다. RestaurantBook은 URL에 `{code}`가 포함되므로 `id`가 해당 `BoardConfig.code`에 속하는지 항상 검증한다.
 
 ## 아키텍처 결정
 
@@ -28,38 +37,34 @@
 세 엔티티로 분리한 이유:
 - BoardConfig 분리 → 관리자가 게시판 자체를 추가/삭제/정책 변경 가능 (예: "이벤트" 게시판 신설, "FAQ" 잠금)
 - BoardComment 분리 → 1:N으로 단순. 답변(관리자 댓글)과 일반 댓글을 `isAdminReply` 플래그로 구분
-- Attachment 별도 엔티티 안 만듦 → S3 키 배열을 Board에 jsonb 컬럼으로 직접 저장(MVP). 본격 갤러리/대용량 첨부 시 분리 가능
+- Attachment 별도 엔티티 안 만듦 → MVP에서는 게시판 첨부 자체를 비목표로 둔다. 관리자 이미지 첨부가 필요해지면 기존 `common/upload` presign API를 재사용하고, 본격 갤러리/대용량 첨부 시 별도 엔티티로 분리한다.
 
-### 익명 작성 모델 (RestaurantBook 신규)
+### 로그인 작성 모델
 
-BeautyBook에는 없던 정책. RestaurantBook은 테이블 기반 익명 고객이 메인 사용자라 필요.
+비로그인/테이블 익명 고객은 게시판 범위에서 제외한다. 문의 게시판 작성자는 로그인 사용자이며, 본인 글 수정/삭제는 `authorId` 매칭 또는 관리자 권한으로 판단한다.
 
-**필드 추가** (Board 엔티티에):
-- `authorId` Long nullable — 로그인 사용자 작성 시 PK
-- `authorName` String 200 — 익명·로그인 모두 필수
-- `authorContact` String 100 — 익명 작성 시 필수 (전화 또는 이메일)
-- `guestPasswordHash` String 200 — 익명 작성 시 필수 (BCrypt). 본인 글 수정/삭제 인증용
-- `tableId` Long nullable — 테이블에서 작성 시 자동 부착
+**필드** (Board 엔티티):
+- `authorId` Long nullable — 관리자/로그인 사용자 작성 시 PK. 시스템 시드 글이면 null 가능
+- `authorName` String 200 — 작성자 표시명
+- `status`, `isPinned`, `isAnswered`, `viewCount`, `deletedAt`
 
 **인증 흐름:**
-- 작성: 비로그인 OK. POST `/api/customer/boards/{code}` (공개 라우트). 공지(`allowCustomerWrite=false`) 게시판은 403.
-- 수정/삭제(익명): PATCH/DELETE `/api/customer/boards/{code}/{id}` + body에 `guestPassword`. 서버에서 hash 비교.
-- 수정/삭제(관리자): PATCH/DELETE `/api/admin/boards/{code}/{id}`. 패스워드 무시, 관리자 토큰만으로 가능.
+- 조회: 로그인 사용자만 가능. 비로그인 요청은 401.
+- 작성: 로그인 사용자만 가능. POST `/api/boards/{code}`. 공지(`allowCustomerWrite=false`) 게시판은 일반 사용자 403, 관리자만 작성 가능.
+- 수정/삭제(작성자): PATCH/DELETE `/api/boards/{code}/{id}`. `authorId` 매칭 필요. `id`가 `{code}` 게시판에 속하는지도 반드시 검증.
+- 수정/삭제(관리자): PATCH/DELETE `/api/admin/boards/{code}/{id}`. 패스워드 무시, 관리자 토큰만으로 가능. 이 경우도 `code-id` 불일치면 404.
 
 ### URL 컨벤션
 
 ```
-공개 (비로그인 OK)
+사용자 (로그인 필요)
   GET  /api/boards/configs                   게시판 목록 (활성)
   GET  /api/boards/{code}                    게시글 목록
   GET  /api/boards/{code}/{id}               상세 + viewCount 증가
   GET  /api/boards/{code}/{id}/comments      댓글 목록
-
-고객 작성/수정 (비로그인 OK, 익명)
-  POST   /api/customer/boards/{code}              새 글 (allowCustomerWrite=true 만)
-  PATCH  /api/customer/boards/{code}/{id}         본인 글 수정 (guestPassword)
-  DELETE /api/customer/boards/{code}/{id}         본인 글 삭제 (guestPassword)
-  POST   /api/customer/boards/{code}/{id}/verify  비밀번호 검증(수정 모드 진입용)
+  POST   /api/boards/{code}                    새 글 (allowCustomerWrite=true 만)
+  PATCH  /api/boards/{code}/{id}               본인 글 수정
+  DELETE /api/boards/{code}/{id}               본인 글 삭제
 
 관리자
   GET    /api/admin/board-configs                 모든 BoardConfig
@@ -70,37 +75,29 @@ BeautyBook에는 없던 정책. RestaurantBook은 테이블 기반 익명 고객
   GET    /api/admin/boards/{code}                 게시글 목록 (모든 status)
   POST   /api/admin/boards/{code}                 새 글 (관리자 작성)
   PATCH  /api/admin/boards/{code}/{id}            수정
+  PATCH  /api/admin/boards/{code}/{id}/visibility 게시/숨김 전환
   DELETE /api/admin/boards/{code}/{id}            삭제
   POST   /api/admin/boards/{code}/{id}/pin        핀 고정
   DELETE /api/admin/boards/{code}/{id}/pin        핀 해제
   POST   /api/admin/boards/{code}/{id}/comments   답변 등록 (isAdminReply=true)
 
-업로드 공통
-  POST   /api/upload/presign                      { filename, contentType, folder } → presigned URL
+업로드 공통 (기존 구현 재사용)
+  POST   /api/upload/presign                      ADMIN 전용 이미지 presigned URL
 ```
 
-### WebSocket 토픽
+### 미답변 갱신
 
-기존 컨벤션(`{domain}:operations`, `customer:{thing}/{id}`)을 따름:
-- `boards:operations` — 관리자 화면용. 이벤트:
-  - `INQUIRY_CREATED` — 새 문의 글 생성 (관리자 미답변 카운트 +1)
-  - `INQUIRY_ANSWERED` — 답변 등록 (-1)
-- 사용자측 토픽은 MVP에서 없음. 답변 알림은 사용자가 다시 들어와서 확인하는 폴(pull) 방식.
+MVP에서는 게시판 WebSocket 토픽을 만들지 않는다. 관리자 화면 진입, 새로고침, 답변/삭제 mutation 성공 후 REST API를 다시 조회해서 미답변 수와 목록을 갱신한다.
 
 ### 보안 설정
 
 `SecurityConfig.java`에 추가:
 ```java
-.requestMatchers(HttpMethod.GET,    "/api/boards/**").permitAll()
-.requestMatchers(HttpMethod.GET,    "/api/customer/boards/**").permitAll()
-.requestMatchers(HttpMethod.POST,   "/api/customer/boards/**").permitAll()
-.requestMatchers(HttpMethod.PATCH,  "/api/customer/boards/**").permitAll()
-.requestMatchers(HttpMethod.DELETE, "/api/customer/boards/**").permitAll()
+.requestMatchers("/api/boards/**").authenticated()
 .requestMatchers("/api/admin/boards/**", "/api/admin/board-configs/**").hasRole("ADMIN")
-.requestMatchers("/api/upload/**").authenticated()
 ```
 
-업로드는 익명에게 열어주면 악용 위험 — MVP는 익명 첨부 비허용. 본문 텍스트만. 추후 정책 결정 시 image/* MIME만 허용 + size 제한 + rate-limit 추가 가능.
+RestaurantBook의 기존 `/api/upload/presign`은 ADMIN 전용 이미지 업로드로 유지한다. 게시판 첨부는 MVP 범위 밖이다.
 
 ### 시드 데이터
 
@@ -118,37 +115,34 @@ new BoardConfigDef("inquiry", BoardKind.INQUIRY, "문의 게시판", "문의·�
 - `domain/Board.java`, `BoardConfig.java`, `BoardComment.java`, `BoardKind.java`, `BoardStatus.java`
 - `application/BoardService.java`, `BoardConfigService.java`
 - `infrastructure/BoardRepository.java`, `BoardConfigRepository.java`, `BoardCommentRepository.java`
-- `presentation/PublicBoardController.java`, `CustomerBoardController.java`, `AdminBoardController.java`, `AdminBoardConfigController.java`
+- `presentation/BoardController.java`, `AdminBoardController.java`, `AdminBoardConfigController.java`
 - `presentation/dto/` (10여 개)
 
-**신규 공통** (`src/main/java/com/cj/restaurantbook/common/upload/`):
-- `UploadService.java`, `UploadController.java`, `dto/PresignRequest.java`, `PresignResponse.java`
-- `config/S3Config.java` (S3Presigner Bean)
-
-**WebSocket**:
-- `websocket/AppWebSocketHandler.java` 수정 — `TOPIC_BOARDS = "boards:operations"` 추가, `broadcastInquiryCreated()`, `broadcastInquiryAnswered()` 메서드
+**기존 공통 업로드 재사용** (`src/main/java/com/cj/restaurantbook/common/upload/`):
+- `UploadService.java`, `UploadController.java`, `S3Config.java`, `S3Properties.java`가 이미 존재
+- 이번 게시판 MVP에서는 새 파일을 만들지 않고, 관리자 이미지 첨부가 필요할 때 기존 `/api/upload/presign`만 재사용
 
 **시더/보안/메뉴**:
 - `config/BoardConfigSeeder.java` 신규
 - `config/PermissionCategorySeeder.java` 수정 — `BOARD` 카테고리
 - `config/PermissionSeeder.java` 수정 — `BOARD_VIEW`/`BOARD_EDIT`/`BOARD_DELETE`
 - `config/NavigationMenuSeeder.java` 수정 — `BOARDS`, `BOARD_NOTICE`, `BOARD_INQUIRY`, `ADMIN_BOARDS`, `ADMIN_BOARD_CONFIGS` 추가
-- `config/SecurityConfig.java` 수정 — `/api/boards/**`, `/api/customer/boards/**` 화이트리스트
+- `config/SecurityConfig.java` 수정 — `/api/boards/**` 인증 필요, `/api/admin/boards/**`, `/api/admin/board-configs/**` ADMIN 필요
 
 ### 프론트엔드 (`restaurant-book-front`)
 
 **신규 entities** (`src/entities/board/`):
 - `api/boardApi.ts`, `boardConfigApi.ts`, `commentApi.ts`
 - `model/types.ts` — `Board`, `BoardConfig`, `BoardComment`, `BoardKind`, `BoardStatus`
-- `lib/guestPassword.ts` — sessionStorage 기반 익명 비번 관리
+- `lib/` — 날짜 포맷/작성자 표시 등 필요한 순수 유틸만 추가. 게스트 비밀번호 저장소는 만들지 않음
 
 **신규 features**:
-- `src/features/board-customer/` — `BoardListView`, `BoardDetailView`, `InquiryWriteForm`, `GuestPasswordDialog`
+- `src/features/board-customer/` — `BoardListView`, `BoardDetailView`, `InquiryWriteForm`
 - `src/features/board-admin/` — `AdminBoardTable`, `AdminBoardEditor`, `BoardCommentForm`, `PinToggleButton`
 - `src/features/board-config-admin/` — `BoardConfigTable`, `BoardConfigDialog`
 
 **신규 widgets**:
-- `src/widgets/header/ui/UserNavDropdown.tsx` — 사용자측 드롭다운 (관리자 메가메뉴와 별개)
+- `Header.tsx`의 기존 일반 `DropdownMenu` 재사용 또는 `src/widgets/header/ui/UserNavDropdown.tsx`로 분리 — 관리자 메가메뉴와 별개
 
 **신규 페이지**:
 - `src/app/boards/[code]/page.tsx` — 사용자 게시판
@@ -158,15 +152,15 @@ new BoardConfigDef("inquiry", BoardKind.INQUIRY, "문의 게시판", "문의·�
 
 **Header.tsx 수정**:
 - `adminMenuMeta`에 `ADMIN_BOARDS`, `ADMIN_BOARD_CONFIGS` 추가
-- 루트 레벨 NavigationMenu 중 자식이 있고 ADMIN이 아닌 경우 `UserNavDropdown` 렌더링하도록 분기 추가
+- 루트 레벨 NavigationMenu 중 자식이 있고 ADMIN이 아닌 경우 일반 드롭다운 렌더링. 현재 `Header.tsx`는 이미 `DropdownMenu`를 갖고 있으므로 신규 컴포넌트보다 기존 분기 재사용이 우선. 헤더 navTree는 기존 정책대로 로그인 사용자에게만 렌더링한다.
 - lucide import: `MessageSquare`, `Megaphone`, `Newspaper` 추가
 
 ## 비-목표 (이번 PR에서 안 함)
 
-- 첨부파일 (이미지/PDF) 업로드 — `UploadService`만 만들고 게시판에서는 사용 안 함. 다음 단계.
+- 게시판 첨부파일 (이미지/PDF) — 기존 `UploadService`는 있으나 게시판 연결은 안 함. 다음 단계.
 - 댓글의 댓글 (대댓글) — 1뎁스만.
 - 좋아요/조회수 정렬 — `viewCount` 컬럼만 있고 정렬은 최신순 + 핀 우선 고정.
-- 비밀번호 분실 복구 — MVP는 비번 잊으면 새로 작성. (전화번호 SMS 인증 등은 추후)
+- 비로그인/익명 문의 작성 — MVP 제외. 필요해지면 별도 PR에서 연락처/비밀번호/rate-limit 정책과 함께 설계.
 - 검색 — 목록 페이지에 검색창 없음. 페이지네이션만.
 - 푸시 알림(고객 → 답변 도착) — pull 방식만. 추후 LINE/Kakao 연동 등 검토.
 
@@ -174,7 +168,7 @@ new BoardConfigDef("inquiry", BoardKind.INQUIRY, "문의 게시판", "문의·�
 
 대부분 기존 의존성으로 해결:
 - `spring-boot-starter-web`, `spring-boot-starter-data-jpa`, `spring-boot-starter-security` (이미 있음)
-- `org.springframework.security:spring-security-crypto` — BCrypt (Security 끼워서 이미 있음)
+- `spring-boot-starter-security` — 로그인 사용자/관리자 권한 검증에 사용
 
 추가 검토:
-- AWS SDK v2 `software.amazon.awssdk:s3`, `s3-presigner` — `build.gradle`에 없으면 추가 (이미 있는지 확인 필요)
+- AWS SDK v2와 `common/upload`는 RestaurantBook에 이미 있으므로 중복 추가하지 않는다.

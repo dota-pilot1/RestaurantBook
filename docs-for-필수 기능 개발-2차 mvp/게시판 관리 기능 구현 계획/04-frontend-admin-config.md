@@ -66,7 +66,7 @@ export default function BoardConfigsPage() {
 - `kind` (신규일 때만 선택 — `NOTICE / INQUIRY / FAQ / EVENT`) — 수정 시 read-only
 - `displayName` (필수, 200)
 - `description` (선택, 500자, textarea)
-- `allowCustomerWrite` (스위치 — 비로그인 익명 작성 허용)
+- `allowCustomerWrite` (스위치 — 로그인 사용자 작성 허용)
 - `allowComment` (스위치 — MVP에서는 답변만 가능. 향후 일반 댓글까지 확장 시 동작)
 - `isActive` (스위치 — 수정 시만)
 - `sortOrder` (number)
@@ -75,7 +75,7 @@ export default function BoardConfigsPage() {
 
 **Validation:**
 - code 중복(이미 있는 코드) 시 즉시 에러 표시 — `boardConfigApi.list()`로 미리 받아둔 목록과 비교
-- 시드 데이터(`notice`, `inquiry`)는 코드는 수정 불가지만 정책은 변경 가능. 단 `allowCustomerWrite`를 false → true로 바꾸려는 경우 "이전에 작성된 익명 글이 사라지지 않습니다" 같은 안내 토스트.
+- 시드 데이터(`notice`, `inquiry`)는 코드는 수정 불가지만 정책은 변경 가능. `allowCustomerWrite=false`이면 관리자만 작성 가능하고, true이면 로그인 사용자가 작성 가능하다.
 
 **비활성화(soft delete):**
 - 실제 DELETE 호출 → `isActive=false`. 게시글은 그대로 두되 사용자 측 라우트(`/boards/{code}`)에서 404. 관리자 화면에는 여전히 노출.
@@ -86,7 +86,7 @@ export default function BoardConfigsPage() {
 `src/entities/board/api/boardConfigApi.ts`:
 
 ```ts
-import { api } from "@/shared/api/client";
+import { api } from "@/shared/api/axios";
 import type { BoardConfig } from "../model/types";
 
 export interface CreateBoardConfigBody {

@@ -34,6 +34,9 @@ public class User {
     @Column(nullable = false)
     private boolean active;
 
+    @Column(length = 1000)
+    private String profileImageUrl;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -60,6 +63,10 @@ public class User {
 
     public void updateProfile(String username) {
         this.username = username;
+    }
+
+    public void updateProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
     }
 
     public void addAuthAccount(AuthAccount authAccount) {

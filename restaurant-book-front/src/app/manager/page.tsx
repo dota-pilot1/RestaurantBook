@@ -66,6 +66,7 @@ function ManagerDashboardContent() {
   const inProgress = receivedAndAccepted + (dashboard?.cookingCount ?? 0);
   const readyCount = dashboard?.readyCount ?? 0;
   const paymentCount = todaySales?.paymentCount ?? 0;
+  const netAmount = (todaySales?.totalAmount ?? 0) - (todaySales?.refundAmount ?? 0);
   const pendingStaffCallCount = dashboard?.pendingStaffCallCount ?? 0;
 
   const flowStages = [
@@ -93,7 +94,7 @@ function ManagerDashboardContent() {
           <div className="flex flex-wrap gap-2">
             <QuickButton href="/staff" label="직원 보드" icon={ClipboardList} />
             <QuickButton href="/kitchen-board" label="주방 현황" icon={ChefHat} />
-            <QuickButton href="/sales" label="매출 상세" icon={BarChart3} primary />
+            <QuickButton href="/sales" label="매출 통계" icon={BarChart3} primary />
           </div>
         </section>
 
@@ -107,7 +108,7 @@ function ManagerDashboardContent() {
           <MetricCard
             label="오늘 매출"
             value={formatPrice(todaySales?.totalAmount ?? 0)}
-            delta={`${paymentCount}건`}
+            delta={`결제 ${paymentCount}건`}
             icon={CreditCard}
             href="/sales"
           />
@@ -119,11 +120,12 @@ function ManagerDashboardContent() {
             href="/staff"
           />
           <MetricCard
-            label="결제 완료"
-            value={`${paymentCount}건`}
-            delta="오늘"
-            icon={ReceiptText}
+            label="오늘 순매출"
+            value={formatPrice(netAmount)}
+            delta={`환불 ${todaySales?.refundCount ?? 0}건`}
+            icon={BarChart3}
             href="/sales"
+            tone={netAmount < 0 ? "alert" : undefined}
           />
           <MetricCard
             label="직원 호출"
@@ -165,7 +167,7 @@ function ManagerDashboardContent() {
                 <h2 className="text-sm font-semibold">오늘 결제수단</h2>
               </div>
               <Link href="/sales" className="text-xs font-bold text-muted-foreground hover:text-foreground">
-                상세 보기
+                통계 보기
               </Link>
             </div>
             <div className="space-y-3 p-4">
@@ -186,6 +188,11 @@ function ManagerDashboardContent() {
                   </div>
                 );
               })}
+              {(todaySales?.methodSummaries?.length ?? 0) === 0 ? (
+                <p className="rounded-md border border-dashed border-border p-6 text-center text-sm font-semibold text-muted-foreground">
+                  오늘 결제 기록이 없습니다.
+                </p>
+              ) : null}
             </div>
           </div>
         </section>

@@ -15,7 +15,6 @@ import { Switch } from "@/shared/ui/Switch";
 const schema = z.object({
   name: z.string().min(1, "이름을 입력해주세요.").max(100, "100자 이하로 입력해주세요."),
   active: z.boolean(),
-  displayOrder: z.number().min(0, "0 이상으로 입력해주세요."),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -32,7 +31,7 @@ export function TableFormDialog({ open, table, onClose }: Props) {
 
   const { register, control, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", active: true, displayOrder: 0 },
+    defaultValues: { name: "", active: true },
   });
 
   const active = useWatch({ control, name: "active" });
@@ -40,19 +39,25 @@ export function TableFormDialog({ open, table, onClose }: Props) {
   useEffect(() => {
     if (!open) return;
     reset(table
-      ? { name: table.name, active: table.active, displayOrder: table.displayOrder }
-      : { name: "", active: true, displayOrder: 0 }
+      ? { name: table.name, active: table.active }
+      : { name: "", active: true }
     );
   }, [open, table, reset]);
 
   const mutation = useMutation({
-    mutationFn: (values: FormValues) =>
-      isEdit
-        ? restaurantTableApi.update(table.id, values)
-        : restaurantTableApi.create(values),
+    mutationFn: (values: FormValues) => {
+      const tables = qc.getQueryData<RestaurantTable[]>(["restaurant-tables"]) ?? [];
+      const nextDisplayOrder =
+        tables.reduce((max, t) => Math.max(max, t.displayOrder), 0) + 1;
+
+      return isEdit
+        ? restaurantTableApi.update(table.id, { ...values, displayOrder: table.displayOrder })
+        : restaurantTableApi.create({ ...values, displayOrder: nextDisplayOrder });
+    },
     onSuccess: () => {
       toast.success(isEdit ? "테이블이 수정되었습니다." : "테이블이 추가되었습니다.");
       qc.invalidateQueries({ queryKey: ["restaurant-tables"] });
+      qc.invalidateQueries({ queryKey: ["restaurant-tables-active"] });
       onClose();
     },
     onError: (e) => toastError(e, isEdit ? "테이블 수정에 실패했습니다." : "테이블 추가에 실패했습니다."),
@@ -71,16 +76,6 @@ export function TableFormDialog({ open, table, onClose }: Props) {
               placeholder="예: 1번 테이블"
               invalid={!!errors.name}
               {...register("name")}
-            />
-          </FormField>
-
-          <FormField label="정렬 순서" htmlFor="table-order" error={errors.displayOrder?.message}>
-            <TextInput
-              id="table-order"
-              type="number"
-              min={0}
-              invalid={!!errors.displayOrder}
-              {...register("displayOrder", { valueAsNumber: true })}
             />
           </FormField>
 

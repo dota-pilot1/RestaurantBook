@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Banknote,
   BarChart3,
+  ChevronDown,
   CreditCard,
   ReceiptText,
   RotateCcw,
@@ -29,6 +30,7 @@ const methodIcon: Record<PaymentMethod, React.ComponentType<{ className?: string
 };
 
 const formatPrice = (value: number) => `${value.toLocaleString("ko-KR")}원`;
+const formatPercent = (value: number) => `${value.toFixed(0)}%`;
 const formatDateTime = (value: string) =>
   new Date(value).toLocaleString("ko-KR", {
     month: "2-digit",
@@ -57,6 +59,8 @@ const getPresetRange = (preset: Preset) => {
   return { startDate: endDate, endDate };
 };
 
+const getShortOrderNo = (orderNo: string) => orderNo.split("-").at(-1) ?? orderNo;
+
 export default function SalesPage() {
   return (
     <RequireRole roles={["ROLE_ADMIN", "ROLE_MANAGER"]}>
@@ -70,6 +74,7 @@ function SalesContent() {
   const [preset, setPreset] = useState<Preset>("TODAY");
   const [startDate, setStartDate] = useState(initialRange.startDate);
   const [endDate, setEndDate] = useState(initialRange.endDate);
+  const [showMethodSummary, setShowMethodSummary] = useState(false);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["sales", startDate, endDate],
@@ -77,12 +82,32 @@ function SalesContent() {
     refetchOnWindowFocus: true,
   });
 
+  const totalAmount = data?.totalAmount ?? 0;
+  const refundAmount = data?.refundAmount ?? 0;
+  const netAmount = totalAmount - refundAmount;
+
   const applyPreset = (nextPreset: Preset) => {
     setPreset(nextPreset);
     if (nextPreset === "CUSTOM") return;
     const range = getPresetRange(nextPreset);
     setStartDate(range.startDate);
     setEndDate(range.endDate);
+  };
+
+  const changeStartDate = (value: string) => {
+    setPreset("CUSTOM");
+    setStartDate(value);
+    if (value > endDate) {
+      setEndDate(value);
+    }
+  };
+
+  const changeEndDate = (value: string) => {
+    setPreset("CUSTOM");
+    setEndDate(value);
+    if (value < startDate) {
+      setStartDate(value);
+    }
   };
 
   return (
@@ -95,9 +120,9 @@ function SalesContent() {
               <BarChart3 className="h-6 w-6" />
             </span>
             <div className="min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight">매출 관리</h1>
+              <h1 className="text-2xl font-bold tracking-tight">매출 통계</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                현장 결제 기록 기준으로 기간별 매출과 결제수단을 확인합니다.
+                결제 완료와 환불 기록을 기준으로 기간별 매출을 확인합니다.
               </p>
             </div>
           </div>
@@ -134,8 +159,8 @@ function SalesContent() {
             ))}
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <DateInput label="시작일" value={startDate} onChange={setStartDate} />
-            <DateInput label="종료일" value={endDate} onChange={setEndDate} />
+            <DateInput label="시작일" value={startDate} onChange={changeStartDate} />
+            <DateInput label="종료일" value={endDate} onChange={changeEndDate} />
           </div>
         </section>
 
@@ -146,46 +171,40 @@ function SalesContent() {
         ) : null}
 
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <Metric title="총 매출" value={isLoading ? "-" : formatPrice(data?.totalAmount ?? 0)} icon={CreditCard} />
-          <Metric title="결제 건수" value={isLoading ? "-" : `${data?.paymentCount ?? 0}건`} icon={ReceiptText} />
-          <Metric title="환불 금액" value={isLoading ? "-" : formatPrice(data?.refundAmount ?? 0)} icon={RotateCcw} />
-          <Metric title="환불 건수" value={isLoading ? "-" : `${data?.refundCount ?? 0}건`} icon={ReceiptText} />
+          <Metric
+            title="총 매출"
+            value={isLoading ? "-" : formatPrice(totalAmount)}
+            description="결제 완료 기준"
+            icon={CreditCard}
+          />
+          <Metric
+            title="순매출"
+            value={isLoading ? "-" : formatPrice(netAmount)}
+            description="총 매출 - 환불"
+            icon={BarChart3}
+            valueClassName={netAmount < 0 ? "text-red-700" : undefined}
+          />
+          <Metric
+            title="결제 건수"
+            value={isLoading ? "-" : `${data?.paymentCount ?? 0}건`}
+            description={`환불 ${data?.refundCount ?? 0}건`}
+            icon={ReceiptText}
+          />
+          <Metric
+            title="환불"
+            value={isLoading ? "-" : formatPrice(refundAmount)}
+            description={`${data?.refundCount ?? 0}건`}
+            icon={RotateCcw}
+            valueClassName={refundAmount > 0 ? "text-red-700" : undefined}
+          />
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
-          <div className="rounded-md border border-border bg-background">
+        <section className="rounded-md border border-border bg-background">
             <div className="border-b border-border px-4 py-3">
-              <h2 className="text-sm font-bold">결제수단별 매출</h2>
-            </div>
-            <div className="space-y-3 p-4">
-              {(data?.methodSummaries ?? []).map((summary) => {
-                const Icon = methodIcon[summary.method];
-                return (
-                  <div key={summary.method} className="flex items-center justify-between rounded-md border border-border px-3 py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="text-sm font-bold">{methodLabel[summary.method]}</p>
-                        <p className="text-xs text-muted-foreground">{summary.count}건</p>
-                      </div>
-                    </div>
-                    <p className="font-black tabular-nums">{formatPrice(summary.amount)}</p>
-                  </div>
-                );
-              })}
-              {!isLoading && (data?.methodSummaries?.length ?? 0) === 0 ? (
-                <p className="rounded-md border border-dashed border-border p-6 text-center text-sm font-semibold text-muted-foreground">
-                  결제 기록이 없습니다.
-                </p>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="rounded-md border border-border bg-background">
-            <div className="border-b border-border px-4 py-3">
-              <h2 className="text-sm font-bold">최근 결제 목록</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold">최근 결제 목록</h2>
+                <span className="text-xs font-semibold text-muted-foreground">최근 50건</span>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">
@@ -203,7 +222,7 @@ function SalesContent() {
                     <tr key={payment.id}>
                       <td className="px-4 py-3 font-medium">{formatDateTime(payment.paidAt)}</td>
                       <td className="px-4 py-3 font-mono text-xs font-bold">
-                        #{payment.orderNo.split("-").at(-1) ?? payment.orderNo}
+                        #{getShortOrderNo(payment.orderNo)}
                       </td>
                       <td className="px-4 py-3">{payment.tableName ?? "테이블 미지정"}</td>
                       <td className="px-4 py-3">{methodLabel[payment.method]}</td>
@@ -222,12 +241,14 @@ function SalesContent() {
                 </tbody>
               </table>
             </div>
-          </div>
         </section>
 
         <section className="rounded-md border border-border bg-background">
           <div className="border-b border-border px-4 py-3">
-            <h2 className="text-sm font-bold">최근 환불 목록</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-bold">최근 환불 목록</h2>
+              <span className="text-xs font-semibold text-muted-foreground">최근 50건</span>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-sm">
@@ -244,10 +265,10 @@ function SalesContent() {
                 {(data?.refundedPayments ?? []).map((payment) => (
                   <tr key={payment.id}>
                     <td className="px-4 py-3 font-medium">
-                      {formatDateTime(payment.refundedAt ?? payment.paidAt)}
+                      {payment.refundedAt ? formatDateTime(payment.refundedAt) : "-"}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs font-bold">
-                      #{payment.orderNo.split("-").at(-1) ?? payment.orderNo}
+                      #{getShortOrderNo(payment.orderNo)}
                     </td>
                     <td className="px-4 py-3">{payment.tableName ?? "테이블 미지정"}</td>
                     <td className="px-4 py-3">{methodLabel[payment.method]}</td>
@@ -266,6 +287,64 @@ function SalesContent() {
               </tbody>
             </table>
           </div>
+        </section>
+
+        <section className="rounded-md border border-border bg-background">
+          <button
+            type="button"
+            onClick={() => setShowMethodSummary((current) => !current)}
+            className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition-colors hover:bg-accent"
+            aria-expanded={showMethodSummary}
+          >
+            <span className="min-w-0">
+              <span className="block text-sm font-bold">결제수단별 매출</span>
+              <span className="mt-1 block text-xs font-semibold text-muted-foreground">
+                카드/현금/기타 정산 기능 확장 예정
+              </span>
+            </span>
+            <ChevronDown
+              className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                showMethodSummary ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+          {showMethodSummary ? (
+            <div className="grid gap-3 border-t border-border p-4 md:grid-cols-3">
+              {(data?.methodSummaries ?? []).map((summary) => {
+                const Icon = methodIcon[summary.method];
+                const percent = totalAmount > 0 ? (summary.amount / totalAmount) * 100 : 0;
+                return (
+                  <div key={summary.method} className="rounded-md border border-border px-3 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <p className="text-sm font-bold">{methodLabel[summary.method]}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {summary.count}건 · {formatPercent(percent)}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="font-black tabular-nums">{formatPrice(summary.amount)}</p>
+                    </div>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{ width: `${Math.min(percent, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+              {!isLoading && (data?.methodSummaries?.length ?? 0) === 0 ? (
+                <p className="rounded-md border border-dashed border-border p-6 text-center text-sm font-semibold text-muted-foreground md:col-span-3">
+                  결제 기록이 없습니다.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </section>
       </div>
     </main>
@@ -297,11 +376,15 @@ function DateInput({
 function Metric({
   title,
   value,
+  description,
   icon: Icon,
+  valueClassName,
 }: {
   title: string;
   value: string;
+  description?: string;
   icon: React.ComponentType<{ className?: string }>;
+  valueClassName?: string;
 }) {
   return (
     <div className="rounded-md border border-border bg-background p-4">
@@ -309,7 +392,12 @@ function Metric({
         <span className="text-sm font-medium text-muted-foreground">{title}</span>
         <Icon className="h-4 w-4 text-muted-foreground" />
       </div>
-      <strong className="mt-3 block text-2xl font-bold tracking-tight">{value}</strong>
+      <strong className={`mt-3 block text-2xl font-bold tracking-tight tabular-nums ${valueClassName ?? ""}`}>
+        {value}
+      </strong>
+      {description ? (
+        <span className="mt-1 block text-xs font-semibold text-muted-foreground">{description}</span>
+      ) : null}
     </div>
   );
 }

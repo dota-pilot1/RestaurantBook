@@ -1,6 +1,6 @@
 # 03-frontend-customer
 
-사용자(고객/스태프 누구나)에게 노출되는 게시판 화면. 헤더 중앙 "게시판" 드롭다운 → 공지사항/문의 게시판 진입.
+로그인 사용자에게 헤더 중앙 "게시판" 드롭다운으로 공지사항/문의 게시판 진입을 제공한다. 비로그인 일반 유저와 테이블 익명 고객은 게시판 자체를 보지 않아도 되는 정책이다.
 
 ## 헤더 메뉴 추가
 
@@ -13,7 +13,7 @@
 new NavigationMenuDef("DASHBOARD", null, "대시보드", "nav.dashboard",
         "/dashboard", "LayoutDashboard", null, 0),
 new NavigationMenuDef("BOARDS",    null, "게시판",   "nav.boards",
-        null,        "MessageSquare",   null, 1),  // 신규: 누구에게나 보임 (requiredRole=null)
+        null,        "MessageSquare",   null, 1),  // 로그인 사용자 헤더에서 노출 (requiredRole=null)
 new NavigationMenuDef("ADMIN",     null, "관리",     "nav.admin",
         null,        "Settings",        RoleSeeder.ROLE_ADMIN, 2),  // displayOrder 1→2
 
@@ -51,9 +51,13 @@ boardNotice: "通知",
 boardInquiry: "咨询",
 ```
 
-### 3. UserNavDropdown 컴포넌트 신규
+### 3. 일반 드롭다운 처리
 
-현재 `Header.tsx`는 자식이 있는 루트 메뉴를 `AdminMegaMenu`(4열 그리드 + 카테고리)로만 그린다. 일반 사용자용 단순 드롭다운이 없으므로 신규 작성.
+현재 RestaurantBook `Header.tsx`에는 `AdminMegaMenu`와 일반 `DropdownMenu`가 이미 있다. 따라서 신규 `UserNavDropdown`을 반드시 만들 필요는 없다. 우선 기존 `DropdownMenu`를 사용하고, 게시판 드롭다운에 아이콘/설명 등 별도 UI가 필요해질 때만 `UserNavDropdown`으로 분리한다.
+
+헤더 navTree는 기존 정책대로 `status === "authenticated"`일 때만 렌더링한다. 비로그인 일반 유저에게 게시판 헤더 메뉴를 노출하지 않는다.
+
+필요 시 분리할 컴포넌트 예시는 아래와 같다.
 
 `src/widgets/header/ui/UserNavDropdown.tsx`:
 
@@ -128,7 +132,7 @@ export function UserNavDropdown({ item }: { item: NavigationMenuItem }) {
 
 기존 헤더 렌더 부분에서 루트 메뉴 처리:
 - `code === "ADMIN"` → `AdminMegaMenu` (기존)
-- 자식이 있고 ADMIN이 아님 → `UserNavDropdown` (신규)
+- 자식이 있고 ADMIN이 아님 → 기존 `DropdownMenu` 또는 분리한 `UserNavDropdown`
 - 자식 없음, path 있음 → 단순 NavLink (기존)
 
 ```tsx
@@ -136,13 +140,13 @@ export function UserNavDropdown({ item }: { item: NavigationMenuItem }) {
   if (item.children.length > 0) {
     return item.code === "ADMIN"
       ? <AdminMegaMenu key={item.id} item={item} />
-      : <UserNavDropdown key={item.id} item={item} />;
+      : <DropdownMenu key={item.id} item={item} />;
   }
   return <NavLink key={item.id} href={item.path!}>{item.label}</NavLink>;
 })}
 ```
 
-`resolveLucideIcon` 헬퍼는 NavigationMenu.icon 문자열 → 컴포넌트로 변환. 이미 있으면 재사용, 없으면 lucide-react import 동적 매핑 모듈 신규 (`shared/ui/icons/resolveLucideIcon.ts`).
+`resolveLucideIcon` 헬퍼는 `UserNavDropdown`을 별도 분리하고 아이콘을 렌더링할 때만 필요하다. 기존 `DropdownMenu`를 그대로 쓰면 이번 MVP에서는 생략 가능.
 
 ## entities 계층
 
@@ -175,7 +179,6 @@ export interface BoardSummary {
   isAnswered: boolean;
   viewCount: number;
   createdAt: string;
-  isGuest: boolean;
 }
 
 export interface BoardDetail extends BoardSummary {
@@ -205,7 +208,7 @@ export interface PageResp<T> {
 ### `api/boardApi.ts`
 
 ```ts
-import { api } from "@/shared/api/client";
+import { api } from "@/shared/api/axios";
 import type { BoardConfig, BoardDetail, BoardSummary, BoardComment, PageResp } from "../model/types";
 
 export const boardApi = {
@@ -220,57 +223,23 @@ export const boardApi = {
   comments: (code: string, id: number) =>
     api.get<BoardComment[]>(`/api/boards/${code}/${id}/comments`).then(r => r.data),
 
-  // 익명 작성/수정/삭제
-  createGuest: (code: string, body: GuestCreateBody) =>
-    api.post<BoardDetail>(`/api/customer/boards/${code}`, body).then(r => r.data),
+  create: (code: string, body: BoardWriteBody) =>
+    api.post<BoardDetail>(`/api/boards/${code}`, body).then(r => r.data),
 
-  verifyGuest: (code: string, id: number, guestPassword: string) =>
-    api.post<void>(`/api/customer/boards/${code}/${id}/verify`, { guestPassword }),
+  update: (code: string, id: number, body: BoardWriteBody) =>
+    api.patch<void>(`/api/boards/${code}/${id}`, body),
 
-  updateGuest: (code: string, id: number, body: GuestUpdateBody) =>
-    api.patch<void>(`/api/customer/boards/${code}/${id}`, body),
-
-  deleteGuest: (code: string, id: number, guestPassword: string) =>
-    api.delete<void>(`/api/customer/boards/${code}/${id}`, { params: { guestPassword } }),
+  remove: (code: string, id: number) =>
+    api.delete<void>(`/api/boards/${code}/${id}`),
 };
 
-export interface GuestCreateBody {
+export interface BoardWriteBody {
   title: string;
   content: string;
-  authorName: string;
-  authorContact: string;
-  guestPassword: string;
-  tableId?: number | null;
-}
-
-export interface GuestUpdateBody {
-  title: string;
-  content: string;
-  guestPassword: string;
 }
 ```
 
-### `lib/guestPassword.ts`
-
-브라우저 sessionStorage에 게스트 비밀번호를 일시 보관(수정 화면 진입 후 페이지 이동 시 다시 묻지 않게). 새 탭/세션이면 사라짐.
-
-```ts
-const PREFIX = "rb-guest-pw-";
-
-export const guestPasswordStore = {
-  set(boardId: number, password: string) {
-    sessionStorage.setItem(PREFIX + boardId, password);
-  },
-  get(boardId: number): string | null {
-    return sessionStorage.getItem(PREFIX + boardId);
-  },
-  clear(boardId: number) {
-    sessionStorage.removeItem(PREFIX + boardId);
-  },
-};
-```
-
-비번 자체를 sessionStorage에 평문 저장하는 게 부담스러우면 첫 verify 후 short-lived JWT 같은 토큰으로 대체할 수 있지만, 게스트 4자리 숫자 수준에서는 과한 설계. MVP는 sessionStorage.
+게스트 비밀번호 저장소는 만들지 않는다. 수정/삭제 가능 여부는 서버가 로그인 사용자와 게시글 작성자/관리자 권한으로 판단한다.
 
 ## 페이지 라우트
 
@@ -317,9 +286,9 @@ export default function BoardListPage() {
 ### `src/app/boards/[code]/[id]/page.tsx` — 상세
 
 상세 페이지에서는:
-- 본문 + 작성자(익명 마스킹: "홍길*") + 작성일 + 조회수
+- 본문 + 작성자 + 작성일 + 조회수
 - 답변(`isAdminReply=true` 댓글) 표시 영역 (없으면 "답변 대기 중")
-- 익명 글이면 우측에 "본인 글 수정/삭제" 버튼 → `GuestPasswordDialog` 띄워서 verify → 성공 시 수정 폼으로
+- `canEdit=true`이면 우측에 "수정/삭제" 버튼 표시
 
 ### `features/board-customer/BoardListView.tsx`
 
@@ -334,21 +303,13 @@ export default function BoardListPage() {
 
 ### `features/board-customer/InquiryWriteForm.tsx`
 
-문의 게시판 새 글 작성. 익명 사용자는 다음 입력:
+문의 게시판 새 글 작성. 로그인 사용자는 다음 입력:
 - 제목 (필수, 500자)
-- 내용 (필수, textarea)
-- 이름 (필수, 200자)
-- 연락처 (필수, 100자) — 형식 검증은 정규식 두 개 OR (전화 또는 이메일)
-- 비밀번호 4자리 숫자 (input type=password, pattern="\\d{4,8}")
-- 비밀번호 확인
+- 내용 (필수, Lexical 리치텍스트 에디터 JSON 저장)
 
-테이블 세션이 있으면 `tableSessionStorage.getTableId()`로 자동 부착.
+작성자 이름은 로그인 사용자 정보에서 서버가 결정한다.
 
-성공 시 → `/boards/inquiry/{newId}` 로 이동 + 비밀번호를 `guestPasswordStore.set()`에 저장 → 즉시 수정 가능 상태.
-
-### `features/board-customer/GuestPasswordDialog.tsx`
-
-기존 글 수정/삭제 진입용. 비번 입력 → POST verify → 성공 시 콜백.
+성공 시 → `/boards/inquiry/{newId}` 로 이동.
 
 ## React Query 키 컨벤션
 
@@ -364,20 +325,12 @@ export default function BoardListPage() {
 - update: `["board-detail", code, id]` + `["board-list", code]`
 - delete: 동일
 
-## 익명 마스킹 정책
-
-목록·상세에서 익명 작성자 이름 표시:
-- 2자: `홍*`
-- 3자: `홍*동`
-- 4자 이상: `홍*동` (가운데만 별, 첫 글자 + 마지막 글자 노출)
-
-연락처는 표시 안 함. 관리자 화면에서만 노출.
-
 ## 빈 상태 / 에러
 
 - 게시글 0개: "아직 등록된 글이 없습니다." + (allowCustomerWrite면) "첫 글을 남겨보세요" CTA
 - 비활성 게시판(`isActive=false`)에 직접 URL 진입: 404
-- 비밀번호 불일치: 토스트 "비밀번호가 일치하지 않습니다." (3회 실패하면 60초 잠금 — 클라이언트 자체 카운트로 약식 보호)
+- 비로그인 접근: 로그인 페이지로 이동 또는 401 처리
+- 작성자 외 수정/삭제: 토스트 "수정 권한이 없습니다."
 
 ## 다음 문서
 

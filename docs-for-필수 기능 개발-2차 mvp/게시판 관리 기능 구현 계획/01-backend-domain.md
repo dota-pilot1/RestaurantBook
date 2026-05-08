@@ -15,7 +15,6 @@ restaurant-book-server/src/main/java/com/cj/restaurantbook/board/
 │   └── exception/
 │       ├── BoardNotFoundException.java
 │       ├── BoardConfigNotFoundException.java
-│       ├── GuestPasswordMismatchException.java
 │       └── BoardWriteForbiddenException.java
 ├── application/
 │   ├── BoardService.java
@@ -37,7 +36,7 @@ package com.cj.restaurantbook.board.domain;
 
 public enum BoardKind {
     NOTICE,    // 공지사항 (관리자만 작성)
-    INQUIRY,   // 문의 게시판 (익명 작성 가능)
+    INQUIRY,   // 문의 게시판 (로그인 사용자 작성 가능)
     FAQ,       // (예약 — MVP에서는 시드 안 함)
     EVENT      // (예약)
 }
@@ -97,7 +96,7 @@ public class BoardConfig {
     private String description;
 
     @Column(nullable = false)
-    private boolean allowCustomerWrite;  // false=관리자만, true=익명/고객 작성 가능
+    private boolean allowCustomerWrite;  // false=관리자만, true=로그인 사용자 작성 가능
 
     @Column(nullable = false)
     private boolean allowComment;        // 댓글 허용 여부
@@ -173,21 +172,12 @@ public class Board {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    // 작성자 정보 — 익명 작성 시 authorId=null
+    // 작성자 정보 — 로그인 사용자/관리자 작성
     @Column
     private Long authorId;
 
     @Column(nullable = false, length = 200)
     private String authorName;
-
-    @Column(length = 100)
-    private String authorContact;       // 익명 작성 시 필수 (전화/이메일)
-
-    @Column(length = 200)
-    private String guestPasswordHash;   // 익명 작성 시 필수 (BCrypt). 로그인 작성 시 null.
-
-    @Column
-    private Long tableId;               // 테이블 익명 고객이면 자동 부착, 그 외 null
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -231,22 +221,6 @@ public class Board {
         return b;
     }
 
-    /** 익명 고객의 게시글 (문의 등) */
-    public static Board createByGuest(BoardConfig config, String title, String content,
-                                      String authorName, String authorContact,
-                                      String guestPasswordHash, Long tableId) {
-        Board b = new Board();
-        b.boardConfig = config;
-        b.title = title;
-        b.content = content;
-        b.authorName = authorName;
-        b.authorContact = authorContact;
-        b.guestPasswordHash = guestPasswordHash;
-        b.tableId = tableId;
-        b.status = BoardStatus.PUBLISHED;
-        return b;
-    }
-
     // ─── domain ops ───
 
     public void update(String title, String content) {
@@ -267,7 +241,7 @@ public class Board {
     public void softDelete()  { this.deletedAt = Instant.now(); }
     public boolean isDeleted() { return deletedAt != null; }
 
-    public boolean isGuestPost() { return authorId == null; }
+    public boolean isAuthor(Long userId) { return authorId != null && authorId.equals(userId); }
 }
 ```
 
@@ -290,7 +264,7 @@ public class BoardComment {
     private Board board;
 
     @Column
-    private Long authorId;              // 관리자 답변이면 관리자 ID, 익명이면 null
+    private Long authorId;              // 관리자 답변이면 관리자 ID
 
     @Column(nullable = false, length = 200)
     private String authorName;
@@ -342,11 +316,6 @@ public class BoardConfigNotFoundException extends RuntimeException {
     public BoardConfigNotFoundException(String code) { super("BoardConfig not found: " + code); }
 }
 
-// GuestPasswordMismatchException.java
-public class GuestPasswordMismatchException extends RuntimeException {
-    public GuestPasswordMismatchException() { super("Guest password mismatch"); }
-}
-
 // BoardWriteForbiddenException.java
 public class BoardWriteForbiddenException extends RuntimeException {
     public BoardWriteForbiddenException(String code) {
@@ -359,7 +328,6 @@ public class BoardWriteForbiddenException extends RuntimeException {
 ```java
 BOARD_NOT_FOUND("BOARD_NOT_FOUND", "게시글을 찾을 수 없습니다."),
 BOARD_CONFIG_NOT_FOUND("BOARD_CONFIG_NOT_FOUND", "게시판을 찾을 수 없습니다."),
-GUEST_PASSWORD_MISMATCH("GUEST_PASSWORD_MISMATCH", "비밀번호가 일치하지 않습니다."),
 BOARD_WRITE_FORBIDDEN("BOARD_WRITE_FORBIDDEN", "이 게시판은 작성이 제한됩니다."),
 ```
 
@@ -398,7 +366,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
           and b.status = com.cj.restaurantbook.board.domain.BoardStatus.PUBLISHED
         order by b.isPinned desc, b.pinnedOrder asc nulls last, b.createdAt desc
         """)
-    Page<Board> findPublicByCode(@Param("code") String code, Pageable pageable);
+    Page<Board> findVisibleByCode(@Param("code") String code, Pageable pageable);
 
     @Query("""
         select b from Board b

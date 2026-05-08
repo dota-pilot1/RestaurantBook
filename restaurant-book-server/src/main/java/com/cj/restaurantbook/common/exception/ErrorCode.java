@@ -61,6 +61,12 @@ public enum ErrorCode {
     STAFF_CALL_TABLE_MISMATCH(HttpStatus.FORBIDDEN, "STAFF_CALL_005", "테이블 정보가 일치하지 않습니다."),
     TABLE_NOT_FOUND(HttpStatus.NOT_FOUND, "TABLE_001", "테이블을 찾을 수 없습니다."),
     TABLE_NAME_DUPLICATE(HttpStatus.CONFLICT, "TABLE_002", "이미 사용 중인 테이블 이름입니다."),
+    BOARD_NOT_FOUND(HttpStatus.NOT_FOUND, "BOARD_001", "게시글을 찾을 수 없습니다."),
+    BOARD_CONFIG_NOT_FOUND(HttpStatus.NOT_FOUND, "BOARD_002", "게시판을 찾을 수 없습니다."),
+    BOARD_CONFIG_CODE_DUPLICATE(HttpStatus.CONFLICT, "BOARD_003", "이미 존재하는 게시판 코드입니다."),
+    BOARD_WRITE_FORBIDDEN(HttpStatus.FORBIDDEN, "BOARD_004", "이 게시판은 작성이 제한됩니다."),
+    BOARD_AUTHOR_REQUIRED(HttpStatus.FORBIDDEN, "BOARD_005", "게시글 작성자만 처리할 수 있습니다."),
+    BOARD_COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "BOARD_006", "답변을 찾을 수 없습니다."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_999", "서버 오류가 발생했습니다.");
 
     private final HttpStatus status;

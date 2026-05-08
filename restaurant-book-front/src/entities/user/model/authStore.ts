@@ -62,6 +62,12 @@ export const authActions = {
     }
   },
 
+  async updateProfileImage(profileImageUrl: string | null): Promise<User> {
+    const user = await authApi.updateProfileImage(profileImageUrl);
+    authStore.setState({ user, status: "authenticated" });
+    return user;
+  },
+
   async logout(): Promise<void> {
     try {
       await authApi.logout();

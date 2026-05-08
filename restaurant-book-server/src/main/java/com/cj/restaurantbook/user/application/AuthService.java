@@ -118,6 +118,14 @@ public class AuthService {
         return UserSummary.from(user, findEmailIdentifier(user));
     }
 
+    @Transactional
+    public UserSummary updateProfileImage(Long userId, UpdateProfileImageRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        user.updateProfileImageUrl(normalizeProfileImageUrl(request.profileImageUrl()));
+        return UserSummary.from(user, findEmailIdentifier(user));
+    }
+
     private TokenResponse issueTokens(User user, String email) {
         List<String> permCodes = user.getRole().getPermissions()
                 .stream().map(p -> p.getCode()).toList();
@@ -138,6 +146,13 @@ public class AuthService {
         return authAccountRepository.findFirstByUserIdAndProviderTypeOrderByIdAsc(user.getId(), AuthProviderType.EMAIL)
                 .map(AuthAccount::getIdentifier)
                 .orElse(null);
+    }
+
+    private String normalizeProfileImageUrl(String profileImageUrl) {
+        if (profileImageUrl == null || profileImageUrl.isBlank()) {
+            return null;
+        }
+        return profileImageUrl.trim();
     }
 
     private void verifySignupToken(String email, String verifiedToken) {

@@ -9,6 +9,7 @@ public record UserListItemResponse(
         Long id,
         String email,
         String username,
+        String profileImageUrl,
         RoleSummary role,
         boolean active,
         Instant createdAt
@@ -22,6 +23,7 @@ public record UserListItemResponse(
                 u.getId(),
                 email,
                 u.getUsername(),
+                u.getProfileImageUrl(),
                 RoleSummary.from(u.getRole()),
                 u.isActive(),
                 u.getCreatedAt()

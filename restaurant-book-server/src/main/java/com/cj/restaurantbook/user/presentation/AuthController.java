@@ -72,4 +72,12 @@ public class AuthController {
     public ResponseEntity<UserSummary> me(@AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(authService.me(principal.getId()));
     }
+
+    @PatchMapping("/me/profile-image")
+    public ResponseEntity<UserSummary> updateProfileImage(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody UpdateProfileImageRequest request
+    ) {
+        return ResponseEntity.ok(authService.updateProfileImage(principal.getId(), request));
+    }
 }

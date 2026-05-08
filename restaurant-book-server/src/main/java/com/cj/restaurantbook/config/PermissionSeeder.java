@@ -35,7 +35,10 @@ public class PermissionSeeder implements ApplicationRunner {
                 new PermDef("ROLE_DELETE",      "롤 삭제",        "커스텀 롤 삭제",                  "ROLE"),
                 new PermDef("PERMISSION_VIEW",  "권한 조회",      "권한 목록/상세 페이지 접근",        "PERMISSION"),
                 new PermDef("PERMISSION_EDIT",  "권한 수정/등록", "권한 생성·수정",                   "PERMISSION"),
-                new PermDef("PERMISSION_DELETE","권한 삭제",      "권한 삭제",                       "PERMISSION")
+                new PermDef("PERMISSION_DELETE","권한 삭제",      "권한 삭제",                       "PERMISSION"),
+                new PermDef("BOARD_VIEW",       "게시판 조회",     "게시글과 게시판 설정 조회",          "BOARD"),
+                new PermDef("BOARD_EDIT",       "게시판 수정/등록", "게시글 답변·노출·고정 및 게시판 설정", "BOARD"),
+                new PermDef("BOARD_DELETE",     "게시판 삭제",     "게시글 삭제와 게시판 비활성화",        "BOARD")
         );
 
         for (PermDef seed : seeds) {

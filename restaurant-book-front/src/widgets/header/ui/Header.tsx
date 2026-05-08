@@ -17,6 +17,7 @@ import {
   LogOut,
   MapPin,
   Menu,
+  MessageSquare,
   MonitorCog,
   Package,
   Settings,
@@ -92,7 +93,7 @@ const fallbackNavigationMenus: NavigationMenuRecord[] = [
     requiredRole: "ROLE_ADMIN",
     requiredPermission: null,
     visible: true,
-    displayOrder: 1,
+    displayOrder: 2,
     createdAt: "",
     updatedAt: "",
   },
@@ -385,6 +386,86 @@ const fallbackNavigationMenus: NavigationMenuRecord[] = [
     updatedAt: "",
   },
   {
+    id: -21,
+    code: "BOARDS",
+    parentId: null,
+    label: "게시판",
+    labelKey: "nav.boards",
+    path: null,
+    icon: "MessageSquare",
+    isExternal: false,
+    requiredRole: null,
+    requiredPermission: null,
+    visible: true,
+    displayOrder: 1,
+    createdAt: "",
+    updatedAt: "",
+  },
+  {
+    id: -22,
+    code: "BOARD_NOTICE",
+    parentId: -21,
+    label: "공지사항",
+    labelKey: "nav.notice",
+    path: "/boards/notice",
+    icon: "Megaphone",
+    isExternal: false,
+    requiredRole: null,
+    requiredPermission: null,
+    visible: true,
+    displayOrder: 0,
+    createdAt: "",
+    updatedAt: "",
+  },
+  {
+    id: -23,
+    code: "BOARD_INQUIRY",
+    parentId: -21,
+    label: "문의 게시판",
+    labelKey: "nav.inquiry",
+    path: "/boards/inquiry",
+    icon: "MessageSquare",
+    isExternal: false,
+    requiredRole: null,
+    requiredPermission: null,
+    visible: true,
+    displayOrder: 1,
+    createdAt: "",
+    updatedAt: "",
+  },
+  {
+    id: -24,
+    code: "ADMIN_BOARDS",
+    parentId: -3,
+    label: "게시글 관리",
+    labelKey: null,
+    path: "/admin/boards",
+    icon: "MessageSquare",
+    isExternal: false,
+    requiredRole: "ROLE_ADMIN",
+    requiredPermission: null,
+    visible: true,
+    displayOrder: 4,
+    createdAt: "",
+    updatedAt: "",
+  },
+  {
+    id: -25,
+    code: "ADMIN_BOARD_CONFIGS",
+    parentId: -3,
+    label: "게시판 설정",
+    labelKey: null,
+    path: "/admin/board-configs",
+    icon: "Settings",
+    isExternal: false,
+    requiredRole: "ROLE_ADMIN",
+    requiredPermission: null,
+    visible: true,
+    displayOrder: 5,
+    createdAt: "",
+    updatedAt: "",
+  },
+  {
     id: -100,
     code: "GUIDE",
     parentId: null,
@@ -407,6 +488,8 @@ const adminMenuMeta: Record<string, { description: string; icon: LucideIcon }> =
   ADMIN_ORDERS: { description: "접수된 주문과 결제 상태를 관리합니다.", icon: ClipboardList },
   ADMIN_KITCHEN: { description: "주방 접수와 조리 진행 상태를 확인합니다.", icon: Utensils },
   ADMIN_SALES: { description: "일별 매출과 결제 흐름을 확인합니다.", icon: BarChart3 },
+  ADMIN_BOARDS: { description: "게시글 노출, 고정, 문의 답변을 처리합니다.", icon: MessageSquare },
+  ADMIN_BOARD_CONFIGS: { description: "게시판 종류와 작성 가능 여부를 설정합니다.", icon: Settings },
   ADMIN_SALE_MENUS: { description: "키오스크에서 판매할 메뉴와 가격을 관리합니다.", icon: ShoppingBag },
   ADMIN_SALE_MENU_SETS: { description: "세트 상품과 포함 단품 구성을 관리합니다.", icon: Package },
   ADMIN_SALE_MENU_CATEGORIES: { description: "판매 메뉴 카테고리와 노출 순서를 정리합니다.", icon: Package },
@@ -516,10 +599,22 @@ function DropdownMenu({ item }: { item: NavigationMenuItem }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const isBoardsDropdown = item.code === "BOARDS";
 
   const isActive = item.children.some(
     (c) => c.path && pathname.startsWith(c.path)
   );
+  const buttonClassName = isBoardsDropdown
+    ? `inline-flex h-9 items-center gap-1 rounded-md border px-3 text-sm font-medium transition-colors ${
+        isActive || open
+          ? "border-primary/50 bg-primary/10 text-primary"
+          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-primary"
+      }`
+    : `inline-flex h-9 items-center gap-1 border-b-2 px-1 text-sm transition-colors ${
+        isActive
+          ? "border-primary text-foreground font-medium"
+          : "border-transparent text-muted-foreground hover:text-foreground"
+      }`;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -534,18 +629,20 @@ function DropdownMenu({ item }: { item: NavigationMenuItem }) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`inline-flex h-9 items-center gap-1 border-b-2 px-1 text-sm transition-colors ${
-          isActive
-            ? "border-primary text-foreground font-medium"
-            : "border-transparent text-muted-foreground hover:text-foreground"
-        }`}
+        className={buttonClassName}
       >
         {item.label}
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-2 w-44 rounded-md border border-border bg-background shadow-lg z-50 py-1 overflow-hidden">
+        <div
+          className={`absolute left-0 top-full z-50 mt-2 overflow-hidden border bg-background ${
+            isBoardsDropdown
+              ? "w-52 rounded-lg border-border py-2 shadow-lg"
+              : "w-44 rounded-md border-border py-1 shadow-lg"
+          }`}
+        >
           {item.children.map((child) => (
             <Link
               key={child.id}
@@ -553,7 +650,11 @@ function DropdownMenu({ item }: { item: NavigationMenuItem }) {
               target={child.isExternal ? "_blank" : undefined}
               rel={child.isExternal ? "noopener noreferrer" : undefined}
               onClick={() => setOpen(false)}
-              className="block px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              className={`block px-3 py-2 text-sm transition-colors ${
+                isBoardsDropdown
+                  ? "mx-1 rounded-md text-muted-foreground hover:bg-accent hover:text-primary"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
             >
               {child.label}
             </Link>
@@ -684,11 +785,14 @@ export function Header() {
   };
 
   const userRole = user?.role?.code ?? null;
+  const canManageTables = userRole === "ROLE_ADMIN" || userRole === "ROLE_MANAGER";
 
   const { data: flatMenus = [] } = useQuery({
     queryKey: ["navigation-menus"],
     queryFn: navigationMenuApi.getAll,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 10,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const { data: siteSetting } = useQuery({
@@ -733,7 +837,7 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-          {status === "authenticated" && tableName && (
+          {status === "authenticated" && (
             <div className="inline-flex items-center">
               <button
                 type="button"
@@ -743,7 +847,7 @@ export function Header() {
                 className="inline-flex h-9 max-w-[180px] items-center gap-1.5 rounded-l-md border border-r-0 border-border bg-muted px-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent"
               >
                 <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="truncate">{tableName}</span>
+                <span className="truncate">{tableName || "테이블 선택"}</span>
               </button>
               <button
                 type="button"
@@ -796,6 +900,7 @@ export function Header() {
       <TablePickerDialog
         open={pickerOpen}
         currentTableName={tableName}
+        canManageTables={canManageTables}
         onSelect={handleTablePick}
         onClose={() => setPickerOpen(false)}
       />

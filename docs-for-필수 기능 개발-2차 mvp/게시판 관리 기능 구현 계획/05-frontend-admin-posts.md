@@ -33,7 +33,7 @@ displayOrder: 4 (max+1)
 │   미답변(2)      │  │   2026-05-08 · 김철수    │             │  │
 │                  │  │ ─────────────────────── │ 본문…        │  │
 │ ▸ (게시판 추가...)│  │ ✉ 김치찌개 문의 (미답변) │             │  │
-│                  │  │   2026-05-07 · 손**고객 │ ─────────── │  │
+│                  │  │   2026-05-07 · 손님계정 │ ─────────── │  │
 │                  │  │ ✓ 영업시간 (답변완료)    │ 답변(1)     │  │
 │                  │  │   2026-05-06 · 박**     │ • 관리자…   │  │
 │                  │  │                          │             │  │
@@ -71,20 +71,18 @@ AdminBoardsPage  (page.tsx, RequireRole 래핑)
 - 공지: 일반적인 제목/본문
 - 문의: 관리자가 직접 문의를 작성하는 케이스는 드물지만 차단할 필요는 없음. 공지와 동일한 폼 사용
 
-본문 에디터는 MVP에서는 단순 textarea. 마크다운/리치 에디터는 별도 PR.
+본문 에디터는 MVP부터 Lexical 리치텍스트 에디터를 사용한다. 저장값은 Lexical JSON 문자열이며, 조회 화면은 readOnly 렌더러로 표시한다.
 
 ### 답변 작성 (`BoardCommentForm`)
 
 ```tsx
 <form onSubmit={...}>
-  <Textarea value={content} onChange={...} placeholder="답변을 입력하세요" />
+  <RichTextEditor value={content} onChange={...} />
   <Button type="submit">답변 등록</Button>
 </form>
 ```
 
 POST `/api/admin/boards/{code}/{id}/comments` → 성공 시 `["board-comments"]` invalidate + `["admin-unanswered-count"]` invalidate.
-
-답변 등록 시 백엔드가 `INQUIRY_ANSWERED` WS 브로드캐스트 → 다른 관리자 탭의 미답변 카운트 자동 감소.
 
 ### 핀 고정 / 해제
 
@@ -103,18 +101,9 @@ POST `/api/admin/boards/{code}/{id}/comments` → 성공 시 `["board-comments"]
 
 ### 미답변 카운트
 
-- API: `GET /api/admin/boards/inquiries/unanswered/count` → `{ count: 2 }`
-- 사이드바 "문의 게시판" 옆 배지에 표시
-- 또한 헤더의 `ADMIN` 메가메뉴 안 "게시글 관리" 옆에도 작은 배지 (옵션)
-
-WS `INQUIRY_CREATED` / `INQUIRY_ANSWERED` 수신 시:
-```ts
-queryClient.setQueryData(["admin-unanswered-count"], (old: { count: number }) => ({
-  count: Math.max(0, old.count + (event === "INQUIRY_CREATED" ? +1 : -1)),
-}));
-```
-
-WS 구독은 토픽 `boards:operations` (관리자 권한 필요).
+- API: `GET /api/admin/boards/inquiries/unanswered-count` → `{ count: 2 }`
+- 상단 요약 또는 사이드바 배지에 표시
+- 화면 진입, 새로고침, 답변 등록/삭제, 게시글 삭제 후 `unansweredCount` 쿼리를 invalidate
 
 ## API client
 
@@ -126,7 +115,7 @@ export const adminBoardApi = {
     api.get<PageResp<BoardSummary>>(`/api/admin/boards/${code}`, { params: { page, size } }).then(r => r.data),
 
   unansweredCount: () =>
-    api.get<{ count: number }>("/api/admin/boards/inquiries/unanswered/count").then(r => r.data),
+    api.get<{ count: number }>("/api/admin/boards/inquiries/unanswered-count").then(r => r.data),
 
   create: (code: string, body: { title: string; content: string }) =>
     api.post<BoardDetail>(`/api/admin/boards/${code}`, body).then(r => r.data),
@@ -156,7 +145,7 @@ export const adminBoardApi = {
 ```ts
 ["admin-board-list", code, page]
 ["admin-board-detail", code, id]
-["board-comments", code, id]   // 공개와 동일 — 관리자도 같은 데이터
+["board-comments", code, id]   // 사용자 화면과 동일 — 관리자도 같은 데이터
 ["admin-unanswered-count"]
 ```
 
@@ -169,34 +158,21 @@ mutation 후 invalidate 매트릭스:
 | reply / deleteReply | `["board-comments", code, id]`, `["admin-unanswered-count"]`, `["admin-board-list", code]` |
 | updateReply | `["board-comments", code, id]` |
 
-## WebSocket 구독 (관리자 화면)
+## 미답변 갱신
 
-```tsx
-useEffect(() => {
-  const unsub = appWebSocket.subscribe("boards:operations", (msg) => {
-    if (msg.type === "INQUIRY_CREATED" || msg.type === "INQUIRY_ANSWERED") {
-      queryClient.invalidateQueries({ queryKey: ["admin-unanswered-count"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-board-list", "inquiry"] });
-    }
-  });
-  return unsub;
-}, []);
-```
+MVP에서는 WebSocket 구독을 붙이지 않는다. 답변 등록/삭제, 게시글 삭제 mutation 성공 시 `["admin-unanswered-count"]`, `["admin-board-list", "inquiry"]`를 invalidate한다.
 
-`appWebSocket` 클라이언트는 기존 스태프 호출 도메인에서 이미 사용 중이므로 같은 모듈 재사용.
+## 작성자 정보 노출
 
-## 익명 작성자 노출
-
-관리자 화면에서는 익명 작성자도 **마스킹 없이** 전체 정보 노출:
-- 이름 (전체)
-- 연락처 (전체) — 답변 등록 후 SMS/메일 안내가 필요할 수 있음
-- tableId (있으면) — 어느 테이블에서 작성했는지 추적
+관리자 화면에서는 로그인 작성자 정보를 표시:
+- 이름/닉네임
+- 이메일 또는 사용자 ID가 필요하면 상세 영역에 표시
 
 ## 빈 상태 / 에러
 
 - 게시판 목록 빈 경우(BoardConfig 0개): "사이드바의 [게시판 추가]를 눌러 첫 게시판을 만드세요" + 게시판 설정 화면 링크
 - 게시글 0개: "이 게시판에 등록된 글이 없습니다." + [+ 새 글] 버튼
-- 비번 잘못된 익명 글 수정 시도: 백엔드 403 → 토스트
+- 작성자 외 수정/삭제 시도: 백엔드 403 → 토스트
 - 답변 본문 비었을 때 등록: 클라이언트 validation으로 차단
 
 ## 다음 문서

@@ -56,6 +56,7 @@ export function TableManagement() {
     onSuccess: () => {
       toast.success("사용 상태가 변경되었습니다.");
       qc.invalidateQueries({ queryKey: ["restaurant-tables"] });
+      qc.invalidateQueries({ queryKey: ["restaurant-tables-active"] });
     },
     onError: (e) => toastError(e, "상태 변경에 실패했습니다."),
   });
@@ -65,6 +66,7 @@ export function TableManagement() {
     onSuccess: () => {
       toast.success("테이블이 삭제되었습니다.");
       qc.invalidateQueries({ queryKey: ["restaurant-tables"] });
+      qc.invalidateQueries({ queryKey: ["restaurant-tables-active"] });
       setDeleteTarget(null);
     },
     onError: (e) => toastError(e, "삭제에 실패했습니다."),
@@ -89,6 +91,7 @@ export function TableManagement() {
     onSuccess: () => {
       toast.success("정렬 순서가 저장되었습니다.");
       qc.invalidateQueries({ queryKey: ["restaurant-tables"] });
+      qc.invalidateQueries({ queryKey: ["restaurant-tables-active"] });
     },
     onError: (e, _next, context) => {
       if (context?.previous) qc.setQueryData(["restaurant-tables"], context.previous);
@@ -124,33 +127,31 @@ export function TableManagement() {
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/40">
-              <Th className="w-12" />
-              <Th>테이블 이름</Th>
-              <Th>사용 중</Th>
-              <Th>정렬</Th>
-              <Th className="text-right">관리</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedTables.length ? (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                modifiers={[restrictToVerticalAxis]}
-                onDragEnd={handleDragEnd}
-              >
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToVerticalAxis]}
+          onDragEnd={handleDragEnd}
+        >
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40">
+                <Th className="w-12" />
+                <Th>테이블 이름</Th>
+                <Th>사용 중</Th>
+                <Th className="text-right">관리</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedTables.length ? (
                 <SortableContext
                   items={sortedTables.map((t) => t.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  {sortedTables.map((t, index) => (
+                  {sortedTables.map((t) => (
                     <SortableTableRow
                       key={t.id}
                       table={t}
-                      order={index + 1}
                       disabled={isMutating}
                       onToggleActive={() => toggleMutation.mutate(t)}
                       onEdit={() => setFormTarget(t)}
@@ -158,16 +159,16 @@ export function TableManagement() {
                     />
                   ))}
                 </SortableContext>
-              </DndContext>
-            ) : (
-              <tr>
-                <Td colSpan={5} className="py-8 text-center text-muted-foreground">
-                  등록된 테이블이 없습니다.
-                </Td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              ) : (
+                <tr>
+                  <Td colSpan={4} className="py-8 text-center text-muted-foreground">
+                    등록된 테이블이 없습니다.
+                  </Td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </DndContext>
       </div>
 
       <TableFormDialog
@@ -191,10 +192,9 @@ export function TableManagement() {
 }
 
 function SortableTableRow({
-  table, order, disabled, onToggleActive, onEdit, onDelete,
+  table, disabled, onToggleActive, onEdit, onDelete,
 }: {
   table: RestaurantTable;
-  order: number;
   disabled: boolean;
   onToggleActive: () => void;
   onEdit: () => void;
@@ -219,6 +219,7 @@ function SortableTableRow({
         <button
           type="button"
           disabled={disabled}
+          aria-label={`${table.name} 정렬 이동`}
           className="inline-flex h-8 w-8 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
           {...attributes}
           {...listeners}
@@ -231,16 +232,17 @@ function SortableTableRow({
         <Switch
           checked={table.active}
           disabled={disabled}
+          aria-label={`${table.name} 사용 상태 변경`}
           onCheckedChange={onToggleActive}
         />
       </Td>
-      <Td className="text-muted-foreground">{order}</Td>
       <Td>
         <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onEdit}
             disabled={disabled}
+            aria-label={`${table.name} 수정`}
             className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input hover:bg-accent disabled:opacity-50"
           >
             <Edit2 className="h-4 w-4" />
@@ -249,6 +251,7 @@ function SortableTableRow({
             type="button"
             onClick={onDelete}
             disabled={disabled}
+            aria-label={`${table.name} 삭제`}
             className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-destructive/50 text-destructive hover:bg-destructive/10 disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" />

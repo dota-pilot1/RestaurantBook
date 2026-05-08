@@ -21,6 +21,7 @@ export type User = {
   id: number;
   email: string;
   username: string;
+  profileImageUrl?: string | null;
   role: RoleSummary;
   permissions: string[];
   createdAt?: string;
@@ -65,6 +66,7 @@ export type UserListItem = {
   id: number;
   email: string;
   username: string;
+  profileImageUrl?: string | null;
   role: RoleSummary;
   active: boolean;
   createdAt: string;

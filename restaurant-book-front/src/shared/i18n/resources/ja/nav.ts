@@ -1,6 +1,9 @@
 export const nav = {
   guide: "ユーザーガイド",
   dashboard: "ダッシュボード",
+  boards: "掲示板",
+  notice: "お知らせ",
+  inquiry: "お問い合わせ掲示板",
   admin: "管理",
   users: "ユーザー管理",
   roleManagement: "ロール管理",

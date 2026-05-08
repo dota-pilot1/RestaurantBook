@@ -5,11 +5,11 @@
 전체 흐름:
 ```
 A. 백엔드 도메인 + 시드 + 보안   (PR #1, ~1.5일)
-B. 백엔드 API + WebSocket        (PR #2, ~1.5일)
-C. 공통 업로드 (S3 presign)      (PR #3, ~0.5일, 선택적 분리)
+B. 백엔드 API                    (PR #2, ~1.5일)
+C. 기존 업로드 API 확인          (PR #3, ~0.2일, 선택)
 D. 사용자 측 화면 + 헤더 메뉴    (PR #4, ~2일)
 E. 관리자 게시판 설정 CRUD       (PR #5, ~1일)
-F. 관리자 게시글 관리 + WS 알림  (PR #6, ~2일)
+F. 관리자 게시글 관리            (PR #6, ~2일)
 G. 마무리 검증 / 회고            (반나절)
 ```
 
@@ -27,7 +27,7 @@ A → B는 직렬, C는 B와 병렬 가능, D~F는 백엔드 안정화 후 병�
 6. `BoardConfigSeeder` (`@Order(5)`) 작성 — `notice`, `inquiry` 시드
 7. `PermissionCategorySeeder` 수정 — `BOARD` 카테고리
 8. `PermissionSeeder` 수정 — `BOARD_VIEW/EDIT/DELETE`
-9. `SecurityConfig` 수정 — `/api/boards/**`, `/api/customer/boards/**` 화이트리스트
+9. `SecurityConfig` 수정 — `/api/boards/**` 인증 필요, 관리자 라우트 ADMIN 필요
 10. `application.yaml` — 필요 설정 점검 (이미 BCrypt 인코더 빈은 있음)
 
 ### 검증 체크리스트
@@ -43,59 +43,57 @@ A → B는 직렬, C는 B와 병렬 가능, D~F는 백엔드 안정화 후 병�
 
 기존 도메인(주문, 메뉴, 사용자) 테이블·시드가 변경 없이 부팅되는지 확인.
 
-## B. 백엔드 API + WebSocket
+## B. 백엔드 API
 
 ### 작업
 
 1. DTO 12개 작성 (`presentation/dto/`)
 2. `BoardConfigService`, `BoardService` 작성
-3. Controller 4개 작성: `PublicBoardController`, `CustomerBoardController`, `AdminBoardController`, `AdminBoardConfigController`
+3. Controller 3개 작성: `BoardController`, `AdminBoardController`, `AdminBoardConfigController`
 4. (별도 컨트롤러로 둘지 합칠지 — 답변 수정/삭제만 따로 `AdminCommentController`로 빼는 것 권장)
-5. `AppWebSocketHandler` 수정 — `TOPIC_BOARDS` + 두 메서드 추가
-6. (있다면) `AppWebSocketTopicResolver` — 관리자만 `boards:operations` 구독 가능
+5. 미답변 수 조회 API 작성
 
 ### 검증 체크리스트 (Postman/curl)
 
 - [ ] `GET /api/boards/configs` → 200, `[notice, inquiry]` 두 개
-- [ ] `POST /api/customer/boards/inquiry` (익명, 유효 body) → 201
-- [ ] `POST /api/customer/boards/notice` (익명) → 403 (allowCustomerWrite=false)
+- [ ] 비로그인 상태에서 `GET /api/boards/configs` → 401
+- [ ] 로그인 상태에서 `POST /api/boards/inquiry` (유효 body) → 201
+- [ ] 로그인 일반 사용자로 `POST /api/boards/notice` → 403 (allowCustomerWrite=false)
 - [ ] `GET /api/boards/inquiry` → 방금 만든 글 보임
 - [ ] `GET /api/boards/inquiry/{id}` 두 번 호출 → viewCount 2 확인
-- [ ] `POST /api/customer/boards/inquiry/{id}/verify` 정확한 비번 → 204, 틀린 비번 → 403
-- [ ] `PATCH /api/customer/boards/inquiry/{id}` 비번 포함 → 204, 본문 변경됨
-- [ ] `DELETE /api/customer/boards/inquiry/{id}?guestPassword=xxxx` → 204, 목록에서 사라짐
+- [ ] 작성자로 `PATCH /api/boards/inquiry/{id}` → 204, 본문 변경됨
+- [ ] 다른 로그인 사용자로 `PATCH /api/boards/inquiry/{id}` → 403
+- [ ] 작성자로 `DELETE /api/boards/inquiry/{id}` → 204, 목록에서 사라짐
 - [ ] 관리자 토큰 없이 `/api/admin/boards/inquiry` → 401/403
 - [ ] 관리자 토큰으로 `POST /api/admin/boards/inquiry/{id}/comments` → 200, `isAdminReply=true` 댓글 생성, Board.isAnswered=true
-- [ ] WS 클라이언트(예: wscat) → `subscribe boards:operations` → 새 익명 문의 작성 시 `INQUIRY_CREATED` 수신
-- [ ] 답변 등록 시 `INQUIRY_ANSWERED` 수신
-- [ ] `GET /api/admin/boards/inquiries/unanswered/count` → 정확한 숫자
-- [ ] `BoardConfig` PATCH로 `allowCustomerWrite=false`로 변경 후 익명 작성 시도 → 403
+- [ ] `GET /api/admin/boards/inquiries/unanswered-count` → 정확한 숫자
+- [ ] `BoardConfig` PATCH로 `allowCustomerWrite=false`로 변경 후 로그인 사용자 작성 시도 → 403
 
 ### 보안 점검
 
-- [ ] 익명 라우트가 정말 비인증으로 통과하는지 (JWT 없이 요청)
+- [ ] 게시판 사용자 라우트가 JWT 없이 막히는지
 - [ ] `/api/admin/**` 가 ADMIN 외 롤로는 막히는지 (ROLE_CUSTOMER 토큰 시도)
 - [ ] CORS — 기존 정책 그대로 적용되는지 (게시판 라우트도 통과)
 
-## C. 공통 업로드 (S3 presign)
+## C. 기존 업로드 API 확인
 
 ### 작업
 
-1. `build.gradle`에 AWS SDK v2 의존성 추가 (있는지 확인)
-2. `config/S3Config.java` — `S3Presigner` 빈
-3. `common/upload/UploadService.java`, `UploadController.java`, DTO 2개
-4. `application.yaml` — `aws.s3.*` (이미 있음) + `app.upload.presign-expires-seconds: 300`
-5. `SecurityConfig` — `/api/upload/**` `.authenticated()` (관리자에 한정해도 OK)
+1. RestaurantBook의 기존 `common/upload` 구현 확인
+2. `/api/upload/presign`이 ADMIN 전용 이미지 업로드로 동작하는지 확인
+3. 게시판 MVP에서는 게시판 첨부를 연결하지 않는다고 명시
+4. 관리자 게시글 에디터에서 이미지 첨부를 이번 범위에 넣을지 결정. 넣지 않으면 API 연동 작업 없음
 
 ### 검증 체크리스트
 
-- [ ] `POST /api/upload/presign` (인증 토큰) → 200, presigned URL + key 반환
+- [ ] `POST /api/upload/presign` (ADMIN 토큰) → 200, presigned URL + publicUrl + objectKey 반환
 - [ ] 발급된 URL로 PUT (Content-Type 일치) → S3에 파일 업로드 성공
 - [ ] 만료 시간 초과 후 PUT → 403/SignatureExpired
 - [ ] 비인증 요청 → 401
-- [ ] dev 환경에서 AWS 자격증명 미설정 시 어떻게 동작하는지 확인 (UploadService Bean 생성 실패하지 않게 — `aws.s3.access-key`가 빈 문자열이어도 빈 자체는 생성되도록)
+- [ ] ADMIN 외 인증 요청 → 403
+- [ ] dev 환경에서 AWS 자격증명 미설정 시 `UPLOAD_NOT_CONFIGURED`로 응답하고 서버 부팅은 성공
 
-게시판에서 즉시 사용하지 않으므로 PR을 분리해도 된다. 단, 이번 게시판 PR 이전에 머지되면 첨부 기능을 1주 안에 추가할 수 있는 길을 열어둠.
+게시판에서 즉시 사용하지 않으므로 PR을 분리하지 않아도 된다. 기존 구현 검증만 하고 넘어간다.
 
 ## D. 사용자 측 화면 + 헤더 메뉴
 
@@ -106,23 +104,24 @@ A → B는 직렬, C는 B와 병렬 가능, D~F는 백엔드 안정화 후 병�
    - `ADMIN`의 displayOrder 1→2
    - i18n nav.ts 4개 언어에 `boards`, `boardNotice`, `boardInquiry` 키 추가
    - Header.tsx의 lucide import에 `Megaphone`, `MessageSquare` 추가
-2. `UserNavDropdown` 컴포넌트 신규 작성 (`widgets/header/ui/`)
-3. Header.tsx 분기 수정 — 자식 있는 루트 중 ADMIN 외에는 UserNavDropdown
-4. (없으면) `resolveLucideIcon` 헬퍼 작성
-5. entities/board — `model/types.ts`, `api/boardApi.ts`, `lib/guestPassword.ts`
-6. features/board-customer — `BoardListView`, `BoardDetailView`, `InquiryWriteForm`, `GuestPasswordDialog`
+2. Header.tsx의 기존 `DropdownMenu`로 `BOARDS` 드롭다운이 그려지는지 확인
+3. Header.tsx 분기 수정 — 자식 있는 루트 중 ADMIN 외에는 일반 드롭다운
+4. `UserNavDropdown`/`resolveLucideIcon`은 별도 아이콘 UI가 필요할 때만 신규 작성
+5. entities/board — `model/types.ts`, `api/boardApi.ts`
+6. features/board-customer — `BoardListView`, `BoardDetailView`, `InquiryWriteForm`
 7. 페이지: `/boards/page.tsx`(카드 그리드), `/boards/[code]/page.tsx`, `/boards/[code]/[id]/page.tsx`, `/boards/[code]/new/page.tsx`
 
 ### 검증 체크리스트 (브라우저)
 
-- [ ] 비로그인 상태에서 `/`(홈) 진입 시 헤더 중앙에 "대시보드 / 게시판 / 관리(=관리자만)" 순서
+- [ ] 비로그인 상태에서 헤더 navTree가 보이지 않음 (기존 정책 유지)
+- [ ] 로그인 상태에서 헤더 중앙에 "대시보드 / 게시판 / 관리(=관리자만)" 순서
+- [ ] 비로그인/테이블 익명 고객은 게시판 화면에 진입하지 않음
 - [ ] "게시판" 클릭 → 드롭다운 열림, "공지사항", "문의 게시판" 두 항목
 - [ ] 공지사항 클릭 → `/boards/notice` 진입, 빈 목록 + "관리자만 작성 가능" 안내
 - [ ] 문의 게시판 클릭 → `/boards/inquiry`, [+ 새 글] 버튼 보임
 - [ ] [+ 새 글] → 폼 작성 → 제출 → 상세 페이지로 이동, 본인 글 수정 가능 상태
-- [ ] 새 탭 열어서 같은 글 진입 → "본인 글 수정/삭제" 버튼 → 비번 다이얼로그
-- [ ] 비번 정답 → 수정 폼, 비번 오답 → 토스트
-- [ ] 익명 작성자 마스킹 노출 (목록·상세 모두)
+- [ ] 작성자 본인 글 상세 → "수정/삭제" 버튼 노출
+- [ ] 다른 로그인 사용자 글 상세 → "수정/삭제" 버튼 미노출
 - [ ] 페이지네이션 동작
 - [ ] 모바일 폭에서 헤더 드롭다운 동작 (햄버거 메뉴와의 정합성)
 
@@ -152,7 +151,7 @@ A → B는 직렬, C는 B와 병렬 가능, D~F는 백엔드 안정화 후 병�
 - [ ] code 중복 입력 시 즉시 에러 표시
 - [ ] 시드 코드(`notice`, `inquiry`)는 code/kind 수정 불가 (input disabled)
 
-## F. 관리자 게시글 관리 + WS 알림
+## F. 관리자 게시글 관리
 
 ### 작업
 
@@ -160,8 +159,8 @@ A → B는 직렬, C는 B와 병렬 가능, D~F는 백엔드 안정화 후 병�
 2. entities/board — `api/adminBoardApi.ts`
 3. features/board-admin — `AdminBoardWorkspace`, `BoardSidebar`, `AdminBoardTable`, `BoardDetailPane`, `BoardCommentForm`, `AdminBoardEditor`, `PinToggleButton`
 4. 페이지 `/admin/boards/page.tsx`
-5. 미답변 카운트 hook + 사이드바 배지
-6. WS 구독 hook (`boards:operations`) → 카운트/목록 invalidate
+5. 미답변 카운트 hook + 상단/사이드바 배지
+6. 답변 등록/삭제/게시글 삭제 후 카운트/목록 invalidate
 
 ### 검증 체크리스트
 
@@ -170,20 +169,20 @@ A → B는 직렬, C는 B와 병렬 가능, D~F는 백엔드 안정화 후 병�
 - [ ] 공지사항 선택 → [+ 새 글] → 작성 → 사용자 측 `/boards/notice`에서 보임
 - [ ] 핀 고정 → 목록 상단 고정 + 사용자 측에서도 상단 표시
 - [ ] 문의 게시판에서 미답변 글 클릭 → [답변 등록] → 즉시 `isAnswered=true` 반영, 사이드바 배지 -1
-- [ ] 다른 브라우저 탭에서 익명 문의 작성 → 관리자 탭의 사이드바 배지 +1 (WS)
+- [ ] 로그인 사용자 문의 작성 후 관리자 화면 새로고침/재조회 → 미답변 배지 +1
 - [ ] 답변 삭제 → `isAnswered=false`로 복귀, 배지 +1
 - [ ] [숨김] → 사용자 측에서 안 보임, 관리자 측에는 회색
 - [ ] [삭제] → 양쪽 모두에서 사라짐, DB에는 deletedAt 채워짐
-- [ ] 익명 작성자 정보(이름·연락처·tableId) 마스킹 없이 노출
+- [ ] 작성자 정보(이름/이메일 또는 사용자 ID) 노출
 
 ## G. 마무리 검증 / 회고
 
 ### 종합 시나리오 테스트
 
 1. 매장 운영자가 새 공지 작성 → 키오스크/홀에서 보임
-2. 손님이 테이블에서 문의 작성 → 관리자에게 실시간 알림
+2. 로그인 사용자가 문의 작성 → 관리자에게 실시간 알림
 3. 관리자가 답변 → 손님이 `/boards/inquiry/{id}`에서 답변 확인
-4. 손님이 자기 글 수정 → 비번 검증 후 수정 성공
+4. 작성자가 자기 글 수정 → 권한 검증 후 수정 성공
 5. 손님이 자기 글 삭제 → 사용자/관리자 모두에서 사라짐
 6. 관리자가 새 게시판(`event`) 추가 → 사용자 측 `/boards`에 노출
 7. 비활성 처리 → 사용자 측 사라짐
@@ -204,20 +203,20 @@ A → B는 직렬, C는 B와 병렬 가능, D~F는 백엔드 안정화 후 병�
 - 잘 된 것
 - 어려웠던 것
 - 다음 PR로 미룬 것 (대댓글, 검색, 첨부파일, 푸시 알림, 휴지통)
-- BeautyBook과 비교한 차이점 정리 (익명 작성, 마스킹 정책, MVP 범위)
+- BeautyBook과 비교한 차이점 정리 (비로그인 제외, RestaurantBook 메뉴/권한 구조, MVP 범위)
 
 ## 작업 추정 (총 ~1.5주)
 
 | 단계 | 사람 | 기간 |
 |---|---|---|
 | A. 백엔드 도메인 | 1 | 1.5일 |
-| B. 백엔드 API + WS | 1 | 1.5일 |
-| C. 업로드 공통 (선택) | 1 | 0.5일 |
+| B. 백엔드 API | 1 | 1.5일 |
+| C. 기존 업로드 API 확인 (선택) | 1 | 0.2일 |
 | D. 사용자 화면 + 헤더 | 1 | 2일 |
 | E. 관리자 게시판 설정 | 1 | 1일 |
 | F. 관리자 게시글 관리 | 1 | 2일 |
 | G. 마무리 검증 | 1 | 0.5일 |
-| **총** | | **~9일** |
+| **총** | | **~8.5일** |
 
 병렬 가능한 곳: D ↔ E ↔ F (백엔드 B 안정화 후). 1명 단독이면 직렬 그대로.
 
@@ -226,11 +225,10 @@ A → B는 직렬, C는 B와 병렬 가능, D~F는 백엔드 안정화 후 병�
 | 위험 | 영향 | 완화 |
 |---|---|---|
 | JPA auto-ddl=update가 production에 적용되어 데이터 손실 | 高 | production은 `validate` 또는 `none`. dev/staging만 update | 
-| 익명 비밀번호 4자리 → 무차별 추측 | 中 | 클라이언트에서 3회 실패 시 60초 잠금. 서버는 rate-limit 필터 추가 검토 |
-| 익명 라우트 악용 (스팸 작성) | 中 | IP 기반 rate-limit 미들웨어. 짧은 시간 내 동일 IP 다수 작성 차단 |
+| 작성자 권한 검증 누락 | 高 | 수정/삭제에서 `authorId` 또는 ADMIN 권한 확인, `code-id` 일치 검증 |
+| 로그인 사용자 도배 작성 | 中 | 필요 시 사용자 ID 기반 작성 빈도 제한 검토 |
 | 5번째 루트 메뉴 추가로 헤더 레이아웃 깨짐 | 低 | 현재 루트는 DASHBOARD/BOARDS/ADMIN 3개라 여유 있음. 모바일에서만 햄버거 |
-| WS 구독 권한 누락 | 中 | 토픽 리졸버에서 ROLE_ADMIN 검증 + 통합 테스트 |
-| 본문 XSS | 高 | textarea만 받고 표시 시 escape (Next.js 기본). 마크다운/리치 에디터 도입 시 sanitize 라이브러리 |
+| 본문 XSS | 高 | 게시글 본문은 Lexical JSON으로 저장하고 Lexical readOnly 렌더러로 표시. HTML 직접 삽입 금지 |
 
 ## 마지막 점검 후 머지
 
