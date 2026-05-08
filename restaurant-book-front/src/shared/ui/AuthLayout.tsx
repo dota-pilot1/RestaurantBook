@@ -25,7 +25,7 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
 
   return (
     <main className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center px-4 py-10 sm:py-14 bg-gradient-to-br from-muted/40 via-background to-accent/10">
-      <div className="relative w-full max-w-5xl">
+      <div className="relative w-full max-w-6xl">
         {/* Soft outer glow ring */}
         <div
           aria-hidden
@@ -33,7 +33,7 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
         />
 
         {/* Card = the "booklet" — items-stretch makes both pages equal height */}
-        <div className="relative grid lg:grid-cols-2 items-stretch rounded-2xl border-2 border-border bg-background shadow-[0_24px_70px_-18px_rgba(0,0,0,0.25)] ring-1 ring-black/5 overflow-hidden lg:min-h-[720px]">
+        <div className="relative grid lg:grid-cols-[3fr_2fr] items-stretch rounded-2xl border-2 border-border bg-background shadow-[0_24px_70px_-18px_rgba(0,0,0,0.25)] ring-1 ring-black/5 overflow-hidden lg:min-h-[720px]">
           <span
             aria-hidden
             className="hidden lg:block absolute top-6 bottom-6 left-1/2 w-px bg-border"
