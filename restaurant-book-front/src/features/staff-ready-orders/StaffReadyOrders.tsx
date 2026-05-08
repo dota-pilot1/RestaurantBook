@@ -11,6 +11,7 @@ import {
   Flame,
   ListChecks,
   Package,
+  PhoneCall,
   ReceiptText,
   Store,
   XCircle,
@@ -19,6 +20,9 @@ import { orderApi } from "@/entities/order/api/orderApi";
 import { useOperationalOrdersWebSocket } from "@/entities/order/api/orderRealtime";
 import type { Order, OrderStatus } from "@/entities/order/model/types";
 import type { PaymentMethod } from "@/entities/payment/model/types";
+import { staffCallApi } from "@/entities/staff-call/api/staffCallApi";
+import { useOperationsStaffCallsWebSocket } from "@/entities/staff-call/api/staffCallRealtime";
+import type { StaffCall, StaffCallType } from "@/entities/staff-call/model/types";
 import { toast, toastError } from "@/shared/lib/toast";
 import { cn } from "@/shared/lib/utils";
 import { NoticeDialog } from "@/shared/ui/NoticeDialog";
@@ -79,6 +83,14 @@ const statusLabel: Record<StaffStatus, string> = {
   COMPLETED: "결제 완료",
 };
 
+const staffCallTypeLabel: Record<StaffCallType, string> = {
+  GENERAL: "일반 호출",
+  REFILL: "물/반찬 리필",
+  QUESTION: "메뉴 문의",
+  PAYMENT: "결제 도움",
+  OTHER: "기타",
+};
+
 const isStaffStatus = (status: OrderStatus): status is StaffStatus =>
   status === "ACCEPTED" || status === "COOKING" || status === "READY" || status === "COMPLETED";
 
@@ -91,6 +103,40 @@ const paymentMethods: Array<{
   { method: "CASH", label: "현금", icon: Banknote },
   { method: "ETC", label: "기타", icon: ReceiptText },
 ];
+
+const playStaffCallAlert = () => {
+  if (typeof window === "undefined") return;
+  const audioWindow = window as Window & {
+    AudioContext?: typeof AudioContext;
+    webkitAudioContext?: typeof AudioContext;
+  };
+  const AudioContextClass = audioWindow.AudioContext || audioWindow.webkitAudioContext;
+  if (!AudioContextClass) return;
+
+  try {
+    const audioContext = new AudioContextClass();
+    const playTone = (startTime: number, frequency: number) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, startTime);
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.18, startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.3);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(startTime);
+      oscillator.stop(startTime + 0.32);
+    };
+
+    const now = audioContext.currentTime;
+    playTone(now, 880);
+    playTone(now + 0.18, 1175);
+    window.setTimeout(() => void audioContext.close(), 900);
+  } catch {
+    // Browser audio can be blocked until the staff screen has user activation.
+  }
+};
 
 export function StaffReadyOrders() {
   return (
@@ -105,9 +151,16 @@ function StaffOrderBoardContent() {
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
   const [cancelMessage, setCancelMessage] = useState("");
   const [cancelNoticeDialogOpen, setCancelNoticeDialogOpen] = useState(false);
+  const [staffCallDialogOpen, setStaffCallDialogOpen] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState<Order | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>("CARD");
   useOperationalOrdersWebSocket();
+  useOperationsStaffCallsWebSocket(true, (payload) => {
+    if (payload.reason === "CREATED") {
+      playStaffCallAlert();
+      toast.info(`${payload.tableName ? `${payload.tableName} · ` : ""}직원 호출이 들어왔습니다.`);
+    }
+  });
 
   useEffect(() => {
     const refetchBoard = () => {
@@ -142,6 +195,15 @@ function StaffOrderBoardContent() {
     queryKey: ["operation-canceled-orders"],
     queryFn: orderApi.getCanceledOperationOrders,
     refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+  });
+
+  const {
+    data: staffCalls = [],
+  } = useQuery({
+    queryKey: ["operations-staff-calls"],
+    queryFn: staffCallApi.getPendingOperationsCalls,
+    refetchInterval: 15000,
     refetchOnWindowFocus: true,
   });
 
@@ -203,6 +265,15 @@ function StaffOrderBoardContent() {
     onError: (error) => toastError(error, "취소 안내 확인 처리를 하지 못했습니다."),
   });
 
+  const acknowledgeStaffCallMutation = useMutation({
+    mutationFn: (callId: number) => staffCallApi.acknowledgeOperationsCall(callId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["operations-staff-calls"] });
+      toast.success("호출을 확인 처리했습니다.");
+    },
+    onError: (error) => toastError(error, "호출 확인 처리를 하지 못했습니다."),
+  });
+
   const submitCancel = () => {
     if (!cancelTarget || cancelMutation.isPending) return;
     const message = cancelMessage.trim();
@@ -247,6 +318,16 @@ function StaffOrderBoardContent() {
                 >
                   <Bell className="h-4 w-4" />
                   취소({visibleCanceledOrders.length})
+                </button>
+              ) : null}
+              {staffCalls.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setStaffCallDialogOpen(true)}
+                  className="inline-flex min-h-[4.25rem] animate-pulse items-center justify-center gap-2 rounded-md border border-rose-300 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800 transition-colors hover:bg-rose-100"
+                >
+                  <PhoneCall className="h-4 w-4" />
+                  호출({staffCalls.length})
                 </button>
               ) : null}
               <SummaryTile label="진행 중" value={`${counts.ACCEPTED + counts.COOKING}건`} />
@@ -364,6 +445,36 @@ function StaffOrderBoardContent() {
         </div>
       </NoticeDialog>
 
+      <NoticeDialog
+        open={staffCallDialogOpen}
+        title="직원 호출"
+        tone="info"
+        confirmText="닫기"
+        onConfirm={() => setStaffCallDialogOpen(false)}
+      >
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-foreground">
+            테이블별 호출을 확인 처리하면 고객 화면에 알림이 갱신됩니다.
+          </p>
+          <div className="max-h-72 space-y-2 overflow-y-auto">
+            {staffCalls.length === 0 ? (
+              <p className="text-sm text-muted-foreground">대기 중인 호출이 없습니다.</p>
+            ) : null}
+            {staffCalls.map((call) => (
+              <StaffCallRow
+                key={call.id}
+                call={call}
+                onAcknowledge={() => acknowledgeStaffCallMutation.mutate(call.id)}
+                processing={
+                  acknowledgeStaffCallMutation.isPending &&
+                  acknowledgeStaffCallMutation.variables === call.id
+                }
+              />
+            ))}
+          </div>
+        </div>
+      </NoticeDialog>
+
       {cancelTarget ? (
         <div
           role="dialog"
@@ -473,6 +584,53 @@ function StaffOrderBoardContent() {
         </div>
       ) : null}
     </main>
+  );
+}
+
+function StaffCallRow({
+  call,
+  onAcknowledge,
+  processing,
+}: {
+  call: StaffCall;
+  onAcknowledge: () => void;
+  processing: boolean;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 5000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const elapsedSec = Math.max(0, Math.floor((now - new Date(call.createdAt).getTime()) / 1000));
+  const elapsedLabel =
+    elapsedSec < 60 ? `${elapsedSec}초 전` : `${Math.floor(elapsedSec / 60)}분 전`;
+
+  return (
+    <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-rose-800">
+            {call.tableName} · {staffCallTypeLabel[call.type]}
+          </p>
+          <p className="mt-1 text-xs font-semibold text-rose-700">
+            {elapsedLabel} · {formatTime(call.createdAt)}
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={processing}
+          onClick={onAcknowledge}
+          className="shrink-0 rounded-md bg-rose-600 px-3 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {processing ? "처리 중" : "확인"}
+        </button>
+      </div>
+      {call.message ? (
+        <p className="mt-2 text-sm font-semibold text-rose-800">{call.message}</p>
+      ) : null}
+    </div>
   );
 }
 
