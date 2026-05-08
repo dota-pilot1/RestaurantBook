@@ -282,13 +282,13 @@ function StaffOrderBoardContent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["operations-staff-calls"] });
       queryClient.refetchQueries({ queryKey: ["operations-staff-calls"], type: "active" });
-      toast.success("호출을 확인 처리했습니다.");
+      toast.success("호출을 처리 완료했습니다.");
     },
     onError: (error, _callId, context) => {
       if (context?.previousCalls) {
         queryClient.setQueryData(["operations-staff-calls"], context.previousCalls);
       }
-      toastError(error, "호출 확인 처리를 하지 못했습니다.");
+      toastError(error, "호출을 처리 완료하지 못했습니다.");
     },
   });
 
@@ -492,7 +492,7 @@ function StaffOrderBoardContent() {
       >
         <div className="space-y-3">
           <p className="text-sm font-semibold text-foreground">
-            테이블별 호출을 확인 처리하면 고객 화면에 알림이 갱신됩니다.
+            테이블 요청을 처리 완료하면 고객 화면의 호출 중 상태가 종료됩니다.
           </p>
           <div className="max-h-72 space-y-2 overflow-y-auto">
             {staffCalls.length === 0 ? (
@@ -698,7 +698,7 @@ function StaffCallRow({
           onClick={onAcknowledge}
           className="shrink-0 rounded-md bg-rose-600 px-3 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {processing ? "처리 중" : "확인"}
+          {processing ? "처리 중" : "처리 완료"}
         </button>
       </div>
       {call.message ? (
