@@ -19,6 +19,7 @@ import { getPostLoginPath } from "@/entities/user/lib/roleRoutes";
 import { TestLoginButtons } from "@/features/auth/test-login/TestLoginButtons";
 import { tableSessionStorage } from "@/shared/lib/tableSessionStorage";
 import { restaurantTableApi } from "@/entities/restaurant-table/api/restaurantTableApi";
+import { SelectInput } from "@/shared/ui/SelectInput";
 
 type LoginFormProps = {
   nextPath?: string;
@@ -78,25 +79,18 @@ export function LoginForm({ nextPath }: LoginFormProps) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
-      <TestLoginButtons nextPath={nextPath} onError={setFormError} tableName={tableName} />
-
       <FormField
         label="테이블 선택"
         htmlFor="login-table-name"
         hint="이 브라우저에서 사용할 테이블을 선택합니다."
       >
         {tables.length > 0 ? (
-          <select
-            id="login-table-name"
+          <SelectInput
             value={tableName}
-            onChange={(e) => setTableName(e.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="">테이블을 선택하세요</option>
-            {tables.map((t) => (
-              <option key={t.id} value={t.name}>{t.name}</option>
-            ))}
-          </select>
+            onValueChange={setTableName}
+            placeholder="테이블을 선택하세요"
+            options={tables.map((t) => ({ value: t.name, label: t.name }))}
+          />
         ) : (
           <TextInput
             id="login-table-name"
@@ -107,6 +101,8 @@ export function LoginForm({ nextPath }: LoginFormProps) {
           />
         )}
       </FormField>
+
+      <TestLoginButtons nextPath={nextPath} onError={setFormError} tableName={tableName} />
 
       {formError && (
         <div
