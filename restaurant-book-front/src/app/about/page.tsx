@@ -9,6 +9,11 @@ import {
   Bell,
   ChefHat,
   LogIn,
+  CheckCircle2,
+  Clock,
+  Mail,
+  Phone,
+  User,
 } from "lucide-react";
 
 const steps = [
@@ -38,8 +43,8 @@ const steps = [
   },
   {
     icon: CreditCard,
-    title: "결제 처리",
-    desc: "카드, 현금 등 다양한 결제 수단을 지원합니다. 결제 후 환불 처리도 가능합니다.",
+    title: "후불 결제 처리",
+    desc: "식사 후 직원이 카드 또는 현금으로 결제를 처리합니다. 필요 시 환불도 가능합니다. (선불/간편결제는 추후 지원 예정)",
     accent: "bg-indigo-500",
   },
 ];
@@ -69,6 +74,26 @@ const roles = [
     bg: "bg-indigo-50 dark:bg-indigo-950/30",
     border: "border-indigo-200 dark:border-indigo-800",
   },
+];
+
+const implemented = [
+  "테이블 키오스크 주문 (태블릿)",
+  "주방 주문 접수 및 조리 상태 관리",
+  "직원 서빙 · 호출 응답",
+  "후불 결제 (카드 / 현금) 및 환불",
+  "관리자 대시보드 · 매출 통계",
+  "메뉴 · 카테고리 · 품절/노출 관리",
+  "역할 기반 접근 제어 (고객 / 주방 / 직원 / 관리자)",
+  "다국어 지원 (한국어 · English · 日本語 · 中文)",
+];
+
+const planned = [
+  "카카오페이 간편결제 연동",
+  "토스페이 간편결제 연동",
+  "SMS 주문 알림 · 결제 문자 발송",
+  "선불 결제 / 키오스크 자체 결제",
+  "주문 통계 고도화 (시간대별 · 메뉴별)",
+  "테이블 QR 코드 기반 주문 지원",
 ];
 
 export default function AboutPage() {
@@ -140,10 +165,7 @@ export default function AboutPage() {
             {roles.map((role) => {
               const Icon = role.icon;
               return (
-                <div
-                  key={role.title}
-                  className={`rounded-xl border ${role.border} ${role.bg} p-5`}
-                >
+                <div key={role.title} className={`rounded-xl border ${role.border} ${role.bg} p-5`}>
                   <Icon className={`mb-3 h-6 w-6 ${role.color}`} />
                   <h3 className="font-bold text-foreground">{role.title}</h3>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{role.desc}</p>
@@ -154,8 +176,74 @@ export default function AboutPage() {
         </div>
       </section>
 
+      {/* Implementation Status */}
+      <section className="border-t border-border px-4 py-14">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="mb-8 text-center text-lg font-bold tracking-tight">구현 현황</h2>
+          <div className="grid gap-5 sm:grid-cols-2">
+            {/* Implemented */}
+            <div className="rounded-xl border border-border bg-background p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                <h3 className="font-semibold text-foreground">현재 구현 완료</h3>
+              </div>
+              <ul className="space-y-2">
+                {implemented.map((item) => (
+                  <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Planned */}
+            <div className="rounded-xl border border-dashed border-border bg-muted/20 p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <Clock className="h-5 w-5 text-amber-500" />
+                <h3 className="font-semibold text-foreground">구현 예정</h3>
+              </div>
+              <ul className="space-y-2">
+                {planned.map((item) => (
+                  <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Developer Contact */}
+      <section className="border-t border-border bg-muted/20 px-4 py-14">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="mb-8 text-center text-lg font-bold tracking-tight">개발자 소개</h2>
+          <div className="mx-auto max-w-sm rounded-xl border border-border bg-background p-6 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground text-xl font-bold">
+              오현
+            </div>
+            <h3 className="text-base font-bold text-foreground">오현석</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">RestaurantBook 개발자</p>
+            <div className="mt-5 space-y-2 text-left">
+              <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                <Phone className="h-4 w-4 shrink-0" />
+                <span>010-4903-8056</span>
+              </div>
+              <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                <Mail className="h-4 w-4 shrink-0" />
+                <a href="mailto:terecal@daum.net" className="hover:text-foreground transition-colors">
+                  terecal@daum.net
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
-      <section className="px-4 py-14 text-center">
+      <section className="border-t border-border px-4 py-14 text-center">
         <div className="mx-auto max-w-md">
           <h2 className="text-lg font-bold">지금 바로 시작해보세요</h2>
           <p className="mt-2 text-sm text-muted-foreground">계정이 있다면 로그인, 없다면 관리자에게 문의하세요.</p>
