@@ -718,6 +718,15 @@ export function Header() {
           )}
           <LanguageSelect />
           <ThemeSwitcher />
+          {status === "authenticated" && (
+            <Link
+              href="/guide"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline font-medium">{t("guide")}</span>
+            </Link>
+          )}
           {status === "authenticated" ? (
             user && <UserDropdown displayName={displayName} user={user} onLogout={handleLogout} />
           ) : status === "anonymous" ? (
