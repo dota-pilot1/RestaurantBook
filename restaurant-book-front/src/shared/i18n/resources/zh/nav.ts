@@ -1,4 +1,5 @@
 export const nav = {
+  guide: "用户指南",
   dashboard: "仪表板",
   admin: "管理",
   users: "用户管理",

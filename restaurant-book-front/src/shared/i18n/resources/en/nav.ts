@@ -1,4 +1,5 @@
 export const nav = {
+  guide: "User Guide",
   dashboard: "Dashboard",
   admin: "Admin",
   users: "Users",

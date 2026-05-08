@@ -1,4 +1,5 @@
 export const nav = {
+  guide: "ユーザーガイド",
   dashboard: "ダッシュボード",
   admin: "管理",
   users: "ユーザー管理",

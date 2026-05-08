@@ -25,7 +25,7 @@ if (!i18n.isInitialized) {
     lng: "ko",
     fallbackLng: "en",
     defaultNS: "common",
-    ns: ["common", "nav", "auth", "form"],
+    ns: ["common", "nav", "auth", "form", "guide"],
     interpolation: { escapeValue: false },
   });
 }
