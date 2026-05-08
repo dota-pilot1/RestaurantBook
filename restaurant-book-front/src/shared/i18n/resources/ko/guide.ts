@@ -36,7 +36,7 @@ export const guide = {
     },
   },
   admin: {
-    summary: "관리자 메뉴는 어디서 봐요?",
+    summary: "메뉴 목록",
     dashboard: "대시보드",
     orders: "주문 관리",
     kitchen: "주방 현황",

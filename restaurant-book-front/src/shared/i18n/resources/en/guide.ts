@@ -36,7 +36,7 @@ export const guide = {
     },
   },
   admin: {
-    summary: "Where are the admin menus?",
+    summary: "Menu List",
     dashboard: "Dashboard",
     orders: "Orders",
     kitchen: "Kitchen board",
