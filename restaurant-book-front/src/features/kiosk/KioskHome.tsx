@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Bell,
   Check,
   XCircle,
   ImageIcon,
@@ -173,6 +174,8 @@ export function KioskHome() {
   const [staffCallDialogOpen, setStaffCallDialogOpen] = useState(false);
   const [staffCallType, setStaffCallType] = useState<StaffCallType>("GENERAL");
   const [staffCallMessage, setStaffCallMessage] = useState("");
+  const [basicRequestOpen, setBasicRequestOpen] = useState(false);
+  const [basicRequestSelected, setBasicRequestSelected] = useState<Set<string>>(new Set());
 
   const customerOrderType = toCustomerOrderType(orderType);
 
@@ -419,6 +422,25 @@ export function KioskHome() {
     },
     onError: (e) => {
       toastError(e, "직원을 호출하지 못했습니다.");
+    },
+  });
+
+  const basicRequestMutation = useMutation({
+    mutationFn: (items: string[]) =>
+      staffCallApi.createCustomerCall({
+        tableName,
+        type: "REFILL",
+        message: items.join(", "),
+      }),
+    onSuccess: () => {
+      setBasicRequestOpen(false);
+      setBasicRequestSelected(new Set());
+      queryClient.invalidateQueries({ queryKey: ["customer-active-staff-calls", tableName] });
+      queryClient.refetchQueries({ queryKey: ["customer-active-staff-calls", tableName], type: "active" });
+      toast.success("요청을 전달했습니다.");
+    },
+    onError: (e) => {
+      toastError(e, "요청을 전달하지 못했습니다.");
     },
   });
 
@@ -831,10 +853,11 @@ export function KioskHome() {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
+                      onClick={() => setBasicRequestOpen(true)}
                       className="flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-background text-sm font-medium transition-colors hover:bg-accent"
                     >
-                      <Utensils className="h-4 w-4" />
-                      물/수저 요청
+                      <Bell className="h-4 w-4" />
+                      기본 요청
                     </button>
                     <button
                       type="button"
@@ -1031,6 +1054,68 @@ export function KioskHome() {
                 className="h-10 rounded-md bg-primary px-4 text-sm font-bold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {createStaffCallMutation.isPending ? "호출 중" : "호출하기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {basicRequestOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+        >
+          <div className="w-full max-w-sm rounded-lg border border-border bg-background p-5 shadow-xl">
+            <h2 className="text-lg font-black">기본 요청</h2>
+            <p className="mt-1 text-sm text-muted-foreground">필요한 항목을 선택해주세요.</p>
+
+            <div className="mt-4 flex flex-col gap-3">
+              {(["물", "냅킨", "앞접시", "그릇 치워주세요"] as const).map((item) => {
+                const checked = basicRequestSelected.has(item);
+                return (
+                  <label key={item} className="flex cursor-pointer items-center gap-3">
+                    <div
+                      onClick={() => {
+                        setBasicRequestSelected((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(item)) next.delete(item);
+                          else next.add(item);
+                          return next;
+                        });
+                      }}
+                      className={cn(
+                        "flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors",
+                        checked ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background",
+                      )}
+                    >
+                      {checked ? <Check className="h-3 w-3" /> : null}
+                    </div>
+                    <span className="text-sm font-medium">{item}</span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={basicRequestMutation.isPending}
+                onClick={() => {
+                  setBasicRequestOpen(false);
+                  setBasicRequestSelected(new Set());
+                }}
+                className="h-10 rounded-md border border-border px-4 text-sm font-bold hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                닫기
+              </button>
+              <button
+                type="button"
+                disabled={basicRequestMutation.isPending || basicRequestSelected.size === 0 || !tableName.trim()}
+                onClick={() => basicRequestMutation.mutate([...basicRequestSelected])}
+                className="h-10 rounded-md bg-primary px-4 text-sm font-bold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {basicRequestMutation.isPending ? "요청 중" : "요청하기"}
               </button>
             </div>
           </div>
