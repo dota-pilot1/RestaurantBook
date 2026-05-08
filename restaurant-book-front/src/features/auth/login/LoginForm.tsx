@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertCircle, LogIn } from "lucide-react";
+import { AlertCircle, LayoutGrid, LogIn } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { loginSchema, type LoginFormValues } from "@/shared/lib/validation/auth.schema";
 import { authActions } from "@/entities/user/model/authStore";
@@ -20,6 +20,7 @@ import { TestLoginButtons } from "@/features/auth/test-login/TestLoginButtons";
 import { tableSessionStorage } from "@/shared/lib/tableSessionStorage";
 import { restaurantTableApi } from "@/entities/restaurant-table/api/restaurantTableApi";
 import { SelectInput } from "@/shared/ui/SelectInput";
+import { TablePickerDialog } from "@/features/table-picker/TablePickerDialog";
 
 type LoginFormProps = {
   nextPath?: string;
@@ -30,6 +31,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const { t } = useTranslation("auth");
   const [formError, setFormError] = useState<string | null>(null);
   const [tableName, setTableName] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const { data: tables = [] } = useQuery({
     queryKey: ["restaurant-tables-active"],
@@ -85,12 +87,25 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         hint="이 브라우저에서 사용할 테이블을 선택합니다."
       >
         {tables.length > 0 ? (
-          <SelectInput
-            value={tableName}
-            onValueChange={setTableName}
-            placeholder="테이블을 선택하세요"
-            options={tables.map((t) => ({ value: t.name, label: t.name }))}
-          />
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <SelectInput
+                value={tableName}
+                onValueChange={setTableName}
+                placeholder="테이블을 선택하세요"
+                options={tables.map((t) => ({ value: t.name, label: t.name }))}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              aria-label="전체 테이블 목록에서 선택"
+              title="전체 테이블 목록에서 선택"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
         ) : (
           <TextInput
             id="login-table-name"
@@ -101,6 +116,13 @@ export function LoginForm({ nextPath }: LoginFormProps) {
           />
         )}
       </FormField>
+
+      <TablePickerDialog
+        open={pickerOpen}
+        currentTableName={tableName}
+        onSelect={setTableName}
+        onClose={() => setPickerOpen(false)}
+      />
 
       <TestLoginButtons nextPath={nextPath} onError={setFormError} tableName={tableName} />
 

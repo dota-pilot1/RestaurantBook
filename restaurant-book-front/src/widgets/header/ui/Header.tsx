@@ -12,6 +12,7 @@ import {
   ClipboardList,
   Eye,
   LayoutDashboard,
+  LayoutGrid,
   LogIn,
   LogOut,
   MapPin,
@@ -36,6 +37,7 @@ import { NavLink } from "@/shared/ui/NavLink";
 import { ThemeSwitcher } from "@/shared/ui/theme/ThemeSwitcher";
 import { LanguageSelect } from "@/shared/ui/LanguageSelect";
 import { tableSessionStorage } from "@/shared/lib/tableSessionStorage";
+import { TablePickerDialog } from "@/features/table-picker/TablePickerDialog";
 
 function buildTree(flat: NavigationMenuRecord[], userRole: string | null): NavigationMenuItem[] {
   const visible = flat.filter(
@@ -667,12 +669,17 @@ export function Header() {
   const { status, user } = useAuth();
   const router = useRouter();
   const [tableName, setTableName] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     const syncTableName = () => setTableName(tableSessionStorage.getTableName());
     syncTableName();
     return tableSessionStorage.subscribe(syncTableName);
   }, []);
+
+  const handleTablePick = (next: string) => {
+    tableSessionStorage.setTableName(next);
+  };
 
   const userRole = user?.role?.code ?? null;
 
@@ -711,10 +718,27 @@ export function Header() {
 
         <div className="flex items-center gap-2">
           {status === "authenticated" && tableName && (
-            <span className="inline-flex h-9 max-w-[180px] items-center gap-1.5 rounded-md border border-border bg-muted px-2.5 text-sm font-semibold text-foreground">
-              <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span className="truncate">{tableName}</span>
-            </span>
+            <div className="inline-flex items-center">
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                aria-label="테이블 변경"
+                title="테이블 변경"
+                className="inline-flex h-9 max-w-[180px] items-center gap-1.5 rounded-l-md border border-r-0 border-border bg-muted px-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent"
+              >
+                <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{tableName}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                aria-label="전체 테이블 목록에서 선택"
+                title="전체 테이블 목록에서 선택"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-r-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+            </div>
           )}
           <LanguageSelect />
           <ThemeSwitcher />
@@ -753,6 +777,12 @@ export function Header() {
           ) : null}
         </div>
       </div>
+      <TablePickerDialog
+        open={pickerOpen}
+        currentTableName={tableName}
+        onSelect={handleTablePick}
+        onClose={() => setPickerOpen(false)}
+      />
     </header>
   );
 }
