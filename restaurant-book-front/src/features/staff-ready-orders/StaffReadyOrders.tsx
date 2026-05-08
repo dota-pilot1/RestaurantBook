@@ -92,6 +92,9 @@ const staffCallTypeLabel: Record<StaffCallType, string> = {
   OTHER: "기타",
 };
 
+const headerTileClass =
+  "flex h-[4.25rem] w-[5.75rem] shrink-0 flex-col items-center justify-center rounded-md border px-3 text-center";
+
 const isStaffStatus = (status: OrderStatus): status is StaffStatus =>
   status === "ACCEPTED" || status === "COOKING" || status === "READY" || status === "COMPLETED";
 
@@ -345,12 +348,15 @@ function StaffOrderBoardContent() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+            <div className="flex flex-wrap justify-end gap-2">
               {visibleCanceledOrders.length > 0 ? (
                 <button
                   type="button"
                   onClick={() => setCancelNoticeDialogOpen(true)}
-                  className="inline-flex min-h-[4.25rem] items-center justify-center gap-2 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-800 transition-colors hover:bg-red-100"
+                  className={cn(
+                    headerTileClass,
+                    "gap-2 border-red-300 bg-red-50 text-sm font-bold text-red-800 transition-colors hover:bg-red-100",
+                  )}
                 >
                   <Bell className="h-4 w-4" />
                   취소({visibleCanceledOrders.length})
@@ -360,7 +366,10 @@ function StaffOrderBoardContent() {
                 <button
                   type="button"
                   onClick={() => setStaffCallDialogOpen(true)}
-                  className="inline-flex min-h-[4.25rem] animate-pulse items-center justify-center gap-2 rounded-md border border-rose-300 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800 transition-colors hover:bg-rose-100"
+                  className={cn(
+                    headerTileClass,
+                    "animate-pulse gap-2 border-rose-300 bg-rose-50 text-sm font-bold text-rose-800 transition-colors hover:bg-rose-100",
+                  )}
                 >
                   <PhoneCall className="h-4 w-4" />
                   호출({staffCalls.length})
@@ -806,7 +815,7 @@ function StaffOrderCard({
 
 function SummaryTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-border bg-background px-4 py-3">
+    <div className={cn(headerTileClass, "border-border bg-background")}>
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <p className="mt-1 text-xl font-bold tabular-nums">{value}</p>
     </div>
