@@ -91,6 +91,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/customer/orders").permitAll()
                         .requestMatchers(HttpMethod.PATCH, "/api/customer/orders/canceled/acknowledge").permitAll()
                         .requestMatchers(HttpMethod.PATCH, "/api/customer/orders/*/cancel").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/customer/staff-calls/active").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/customer/staff-calls").permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/api/customer/staff-calls/*/cancel").permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",

@@ -23,6 +23,8 @@ public class AppWebSocketHandler extends TextWebSocketHandler {
 
     private static final String TOPIC_OPERATIONS = "orders:operations";
     private static final String TOPIC_CUSTOMER_ORDERS_PREFIX = "customer:orders/";
+    private static final String TOPIC_STAFF_CALLS = "staff-calls:operations";
+    private static final String TOPIC_CUSTOMER_CALLS_PREFIX = "customer:calls/";
 
     private final ObjectMapper objectMapper;
 
@@ -78,7 +80,16 @@ public class AppWebSocketHandler extends TextWebSocketHandler {
             sendToSession(session, new WsMessage("ERROR", topic, Map.of("message", "FORBIDDEN")));
             return;
         }
-        if (!TOPIC_OPERATIONS.equals(topic) && !topic.startsWith(TOPIC_CUSTOMER_ORDERS_PREFIX)) {
+        if (TOPIC_STAFF_CALLS.equals(topic) && !canSubscribeStaffCalls(session)) {
+            sendToSession(session, new WsMessage("ERROR", topic, Map.of("message", "FORBIDDEN")));
+            return;
+        }
+
+        boolean supported = TOPIC_OPERATIONS.equals(topic)
+                || TOPIC_STAFF_CALLS.equals(topic)
+                || topic.startsWith(TOPIC_CUSTOMER_ORDERS_PREFIX)
+                || topic.startsWith(TOPIC_CUSTOMER_CALLS_PREFIX);
+        if (!supported) {
             sendToSession(session, new WsMessage("ERROR", topic, Map.of("message", "UNSUPPORTED_TOPIC")));
             return;
         }
@@ -112,6 +123,14 @@ public class AppWebSocketHandler extends TextWebSocketHandler {
                 || "ROLE_STAFF".equals(role);
     }
 
+    private boolean canSubscribeStaffCalls(WebSocketSession session) {
+        Object roleObj = session.getAttributes().get("role");
+        String role = roleObj == null ? "" : roleObj.toString();
+        return "ROLE_ADMIN".equals(role)
+                || "ROLE_MANAGER".equals(role)
+                || "ROLE_STAFF".equals(role);
+    }
+
     private void sendToSession(WebSocketSession session, WsMessage message) {
         if (!session.isOpen()) {
             return;
@@ -131,6 +150,14 @@ public class AppWebSocketHandler extends TextWebSocketHandler {
 
     public void broadcastCustomerOrdersChanged(String topic, Object payload) {
         broadcast(topic, new WsMessage("CUSTOMER_ORDERS_CHANGED", topic, payload));
+    }
+
+    public void broadcastStaffCallListChanged(Object payload) {
+        broadcast(TOPIC_STAFF_CALLS, new WsMessage("STAFF_CALL_LIST_CHANGED", TOPIC_STAFF_CALLS, payload));
+    }
+
+    public void broadcastCustomerCallsChanged(String topic, Object payload) {
+        broadcast(topic, new WsMessage("CUSTOMER_CALLS_CHANGED", topic, payload));
     }
 
     public void broadcast(String topic, WsMessage message) {

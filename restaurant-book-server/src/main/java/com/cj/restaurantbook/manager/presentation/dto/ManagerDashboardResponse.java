@@ -6,6 +6,7 @@ public record ManagerDashboardResponse(
         long acceptedCount,
         long cookingCount,
         long readyCount,
-        long canceledTodayCount
+        long canceledTodayCount,
+        long pendingStaffCallCount
 ) {
 }

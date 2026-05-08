@@ -3,6 +3,8 @@ package com.cj.restaurantbook.manager.application;
 import com.cj.restaurantbook.manager.presentation.dto.ManagerDashboardResponse;
 import com.cj.restaurantbook.order.domain.OrderStatus;
 import com.cj.restaurantbook.order.infrastructure.OrderRepository;
+import com.cj.restaurantbook.staff_call.domain.StaffCallStatus;
+import com.cj.restaurantbook.staff_call.infrastructure.StaffCallRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +20,7 @@ public class ManagerDashboardService {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Seoul");
 
     private final OrderRepository orderRepository;
+    private final StaffCallRepository staffCallRepository;
 
     @Transactional(readOnly = true)
     public ManagerDashboardResponse getDashboard() {
@@ -35,7 +38,8 @@ public class ManagerDashboardService {
                         OrderStatus.CANCELED,
                         start,
                         end
-                )
+                ),
+                staffCallRepository.countByStatus(StaffCallStatus.PENDING)
         );
     }
 }
