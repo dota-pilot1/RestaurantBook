@@ -77,7 +77,7 @@ export function SaleMenuAvailabilityBoard() {
 
       <div className="grid gap-3">
         {visibleMenus.length ? visibleMenus.map((menu) => (
-          <div key={menu.id} className="grid gap-3 rounded-lg border border-border p-4 md:grid-cols-[1fr_auto_auto] md:items-center">
+          <div key={menu.id} className="grid gap-4 rounded-lg border border-border p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="truncate text-sm font-semibold">{menu.name}</h2>
@@ -86,40 +86,42 @@ export function SaleMenuAvailabilityBoard() {
               </div>
               <p className="mt-1 text-sm text-muted-foreground">{menu.price.toLocaleString("ko-KR")}원</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {(["ACTIVE", "SOLD_OUT", "HIDDEN"] as SaleMenuStatus[]).map((status) => (
-                <button
-                  key={status}
-                  type="button"
-                  disabled={updateMutation.isPending || menu.status === status}
-                  onClick={() => updateMutation.mutate({ menu, patch: { status } })}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-opacity disabled:opacity-100 ${
-                    menu.status === status ? STATUS_CLASS[status] : "border border-input bg-background hover:bg-accent"
-                  }`}
-                >
-                  {STATUS_LABEL[status]}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Toggle
-                label="노출"
-                checked={menu.visible}
-                disabled={updateMutation.isPending}
-                onChange={(visible) => updateMutation.mutate({ menu, patch: { visible } })}
-              />
-              <Toggle
-                label="매장"
-                checked={menu.availableDineIn}
-                disabled={updateMutation.isPending}
-                onChange={(availableDineIn) => updateMutation.mutate({ menu, patch: { availableDineIn } })}
-              />
-              <Toggle
-                label="포장"
-                checked={menu.availableTakeout}
-                disabled={updateMutation.isPending}
-                onChange={(availableTakeout) => updateMutation.mutate({ menu, patch: { availableTakeout } })}
-              />
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 md:justify-end">
+              <div className="flex flex-wrap items-center gap-2 md:border-r md:border-border md:pr-6">
+                {(["ACTIVE", "SOLD_OUT", "HIDDEN"] as SaleMenuStatus[]).map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    disabled={updateMutation.isPending || menu.status === status}
+                    onClick={() => updateMutation.mutate({ menu, patch: { status } })}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-opacity disabled:opacity-100 ${
+                      menu.status === status ? STATUS_CLASS[status] : "border border-input bg-background hover:bg-accent"
+                    }`}
+                  >
+                    {STATUS_LABEL[status]}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                <Toggle
+                  label="노출"
+                  checked={menu.visible}
+                  disabled={updateMutation.isPending}
+                  onChange={(visible) => updateMutation.mutate({ menu, patch: { visible } })}
+                />
+                <Toggle
+                  label="매장"
+                  checked={menu.availableDineIn}
+                  disabled={updateMutation.isPending}
+                  onChange={(availableDineIn) => updateMutation.mutate({ menu, patch: { availableDineIn } })}
+                />
+                <Toggle
+                  label="포장"
+                  checked={menu.availableTakeout}
+                  disabled={updateMutation.isPending}
+                  onChange={(availableTakeout) => updateMutation.mutate({ menu, patch: { availableTakeout } })}
+                />
+              </div>
             </div>
           </div>
         )) : (

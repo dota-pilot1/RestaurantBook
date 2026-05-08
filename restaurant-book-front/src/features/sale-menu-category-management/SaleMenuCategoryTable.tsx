@@ -134,26 +134,26 @@ export function SaleMenuCategoryTable() {
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/40">
-              <Th className="w-12" />
-              <Th>이름</Th>
-              <Th>설명</Th>
-              <Th>노출</Th>
-              <Th>정렬</Th>
-              <Th className="text-right">관리</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedCategories.length ? (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                modifiers={[restrictToVerticalAxis]}
-                onDragEnd={handleDragEnd}
-              >
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        modifiers={[restrictToVerticalAxis]}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40">
+                <Th className="w-12" />
+                <Th>이름</Th>
+                <Th>설명</Th>
+                <Th>노출</Th>
+                <Th>정렬</Th>
+                <Th className="text-right">관리</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedCategories.length ? (
                 <SortableContext
                   items={sortedCategories.map((category) => category.id)}
                   strategy={verticalListSortingStrategy}
@@ -170,17 +170,17 @@ export function SaleMenuCategoryTable() {
                     />
                   ))}
                 </SortableContext>
-              </DndContext>
-            ) : (
-              <tr>
-                <Td colSpan={6} className="py-8 text-center text-muted-foreground">
-                  등록된 카테고리가 없습니다.
-                </Td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              ) : (
+                <tr>
+                  <Td colSpan={6} className="py-8 text-center text-muted-foreground">
+                    등록된 카테고리가 없습니다.
+                  </Td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </DndContext>
 
       <SaleMenuCategoryFormDialog
         open={formTarget !== null}

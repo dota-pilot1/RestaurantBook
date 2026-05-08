@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { SaleMenuFilters as Filters, SaleMenuStatus } from "@/entities/sale-menu/model/types";
 import type { SaleMenuCategory } from "@/entities/sale-menu-category/model/types";
 import { SelectInput } from "@/shared/ui/SelectInput";
@@ -11,14 +12,34 @@ type Props = {
 };
 
 export function SaleMenuFilters({ filters, categories, onChange }: Props) {
+  const [keyword, setKeyword] = useState(filters.keyword ?? "");
+
+  useEffect(() => {
+    setKeyword(filters.keyword ?? "");
+  }, [filters.keyword]);
+
+  const applyKeyword = () => {
+    onChange({ ...filters, keyword: keyword.trim() || undefined });
+  };
+
   return (
     <div className="mb-4 grid gap-3 rounded-lg border border-border p-3 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-      <input
-        value={filters.keyword ?? ""}
-        onChange={(e) => onChange({ ...filters, keyword: e.target.value || undefined })}
-        placeholder="메뉴명 검색"
-        className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-      />
+      <div className="relative">
+        <input
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+              applyKeyword();
+            }
+          }}
+          placeholder="메뉴명 검색"
+          className="w-full rounded-md border border-input bg-background px-3 py-2 pr-14 text-sm outline-none focus:ring-2 focus:ring-ring"
+        />
+        <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+          Enter
+        </kbd>
+      </div>
       <SelectInput
         value={filters.categoryId?.toString() ?? ""}
         onValueChange={(value) => onChange({ ...filters, categoryId: value ? Number(value) : undefined })}
