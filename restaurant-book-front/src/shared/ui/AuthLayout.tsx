@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { Image as ImageIcon, Utensils } from "lucide-react";
+import Link from "next/link";
+import { Image as ImageIcon, Info, Utensils } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { siteSettingApi } from "@/entities/site-setting/api/siteSettingApi";
@@ -72,7 +73,14 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
           </section>
 
           {/* Right page — form */}
-          <section className="flex h-full items-center justify-center p-6 sm:p-8">
+          <section className="relative flex h-full items-center justify-center p-6 sm:p-8">
+            <Link
+              href="/about"
+              className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <Info className="h-3.5 w-3.5" />
+              서비스 소개
+            </Link>
             <div className="w-full max-w-sm space-y-5">
               <div className="space-y-1.5 text-center lg:text-left">
                 <h1 className="text-xl font-bold tracking-tight">{title}</h1>
