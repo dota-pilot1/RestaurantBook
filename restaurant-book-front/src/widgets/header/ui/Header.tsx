@@ -32,6 +32,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth, authActions } from "@/entities/user/model/authStore";
 import { navigationMenuApi } from "@/entities/navigation-menu/api/navigationMenuApi";
 import type { NavigationMenuRecord, NavigationMenuItem } from "@/entities/navigation-menu/model/types";
+import { siteSettingApi } from "@/entities/site-setting/api/siteSettingApi";
 import { RoleBadge } from "@/features/user-management/RoleBadge";
 import { NavLink } from "@/shared/ui/NavLink";
 import { ThemeSwitcher } from "@/shared/ui/theme/ThemeSwitcher";
@@ -668,6 +669,7 @@ export function Header() {
   const { t } = useTranslation("nav");
   const { status, user } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [tableName, setTableName] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -689,6 +691,14 @@ export function Header() {
     staleTime: 1000 * 60 * 5,
   });
 
+  const { data: siteSetting } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: siteSettingApi.get,
+    staleTime: 1000 * 10,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+  });
+
   const tree = buildTree(flatMenus, userRole);
   const navTree =
     status === "authenticated" && tree.length === 0
@@ -701,6 +711,12 @@ export function Header() {
   };
 
   const displayName = user?.username ?? user?.email ?? "?";
+  const hideKioskHeader =
+    pathname.startsWith("/customer") && siteSetting?.headerNavVisible === false;
+
+  if (hideKioskHeader) {
+    return null;
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-sm">

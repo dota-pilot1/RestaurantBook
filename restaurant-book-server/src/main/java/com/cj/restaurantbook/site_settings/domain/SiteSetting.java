@@ -32,6 +32,9 @@ public class SiteSetting {
     @Column(length = 500)
     private String introSubtitle;
 
+    @Column
+    private Boolean headerNavVisible = true;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -47,12 +50,24 @@ public class SiteSetting {
         s.introTitle = "팀을 위한\n깔끔한 인증 보일러플레이트";
         s.introSubtitle =
                 "Spring Boot + Next.js 기반. 회원·역할·권한까지 갖춘 스타터 템플릿.";
+        s.headerNavVisible = true;
         return s;
     }
 
-    public void update(String heroImageUrl, String introTitle, String introSubtitle) {
+    public boolean isHeaderNavVisible() {
+        return headerNavVisible == null || headerNavVisible;
+    }
+
+    public void update(String heroImageUrl, String introTitle, String introSubtitle, Boolean headerNavVisible) {
         this.heroImageUrl = heroImageUrl;
         this.introTitle = introTitle;
         this.introSubtitle = introSubtitle;
+        if (headerNavVisible != null) {
+            this.headerNavVisible = headerNavVisible;
+        }
+    }
+
+    public void updateHeaderNavVisible(boolean headerNavVisible) {
+        this.headerNavVisible = headerNavVisible;
     }
 }

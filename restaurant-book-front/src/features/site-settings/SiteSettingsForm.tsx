@@ -10,6 +10,7 @@ import { Image as ImageIcon, Upload, Loader2, Trash2 } from "lucide-react";
 import { siteSettingApi } from "@/entities/site-setting/api/siteSettingApi";
 import { uploadImage } from "@/shared/api/upload";
 import { toast, toastError } from "@/shared/lib/toast";
+import { Switch } from "@/shared/ui/Switch";
 
 const schema = z.object({
   introTitle: z
@@ -31,6 +32,7 @@ export function SiteSettingsForm() {
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
+  const [headerNavVisible, setHeaderNavVisible] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -55,6 +57,7 @@ export function SiteSettingsForm() {
         introSubtitle: data.introSubtitle,
       });
       setHeroImageUrl(data.heroImageUrl);
+      setHeaderNavVisible(data.headerNavVisible);
     }
   }, [data, reset]);
 
@@ -64,6 +67,7 @@ export function SiteSettingsForm() {
         heroImageUrl,
         introTitle: values.introTitle,
         introSubtitle: values.introSubtitle,
+        headerNavVisible,
       }),
     onSuccess: (fresh) => {
       toast.success("메인 설정이 저장되었습니다.");
@@ -107,6 +111,8 @@ export function SiteSettingsForm() {
   };
 
   const hasChanges = isDirty || heroImageUrl !== (data?.heroImageUrl ?? null);
+  const hasSettingChanges =
+    hasChanges || headerNavVisible !== (data?.headerNavVisible ?? true);
 
   if (isLoading) {
     return (
@@ -130,7 +136,7 @@ export function SiteSettingsForm() {
         </div>
         <button
           type="submit"
-          disabled={isSubmitting || saveMutation.isPending || !hasChanges}
+          disabled={isSubmitting || saveMutation.isPending || !hasSettingChanges}
           className="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
         >
           {saveMutation.isPending ? "저장 중..." : "저장"}
@@ -238,6 +244,24 @@ export function SiteSettingsForm() {
                 {errors.introSubtitle.message}
               </span>
             )}
+          </section>
+
+          <section className="rounded-lg border border-border bg-muted/20 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <label className="text-sm font-semibold text-foreground">
+                  키오스크 헤더 네비 출력
+                </label>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  끄면 키오스크 화면에서 상단 헤더가 숨겨집니다.
+                </p>
+              </div>
+              <Switch
+                checked={headerNavVisible}
+                onCheckedChange={setHeaderNavVisible}
+                aria-label="키오스크 헤더 네비 출력 여부"
+              />
+            </div>
           </section>
         </div>
       </div>

@@ -13,5 +13,7 @@ public record UpdateSiteSettingRequest(
 
         @NotBlank
         @Size(max = 500)
-        String introSubtitle
+        String introSubtitle,
+
+        Boolean headerNavVisible
 ) {}

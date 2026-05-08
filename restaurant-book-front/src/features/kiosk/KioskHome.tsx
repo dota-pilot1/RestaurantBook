@@ -11,6 +11,7 @@ import {
   Phone,
   Plus,
   ReceiptText,
+  Settings,
   ShoppingBag,
   Store,
   Utensils,
@@ -25,6 +26,7 @@ import { orderApi } from "@/entities/order/api/orderApi";
 import { useCustomerOrdersWebSocket } from "@/entities/order/api/orderRealtime";
 import type { Order } from "@/entities/order/model/types";
 import { saleMenuCategoryApi } from "@/entities/sale-menu-category/api/saleMenuCategoryApi";
+import { siteSettingApi } from "@/entities/site-setting/api/siteSettingApi";
 import { staffCallApi } from "@/entities/staff-call/api/staffCallApi";
 import { useCustomerStaffCallsWebSocket } from "@/entities/staff-call/api/staffCallRealtime";
 import type { StaffCall, StaffCallType } from "@/entities/staff-call/model/types";
@@ -33,6 +35,8 @@ import { tableSessionStorage } from "@/shared/lib/tableSessionStorage";
 import { cn } from "@/shared/lib/utils";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { NoticeDialog } from "@/shared/ui/NoticeDialog";
+import { PasswordInput } from "@/shared/ui/PasswordInput";
+import { Switch } from "@/shared/ui/Switch";
 
 type KioskOrderType = "dine-in" | "takeout";
 
@@ -174,6 +178,11 @@ export function KioskHome() {
   const [staffCallType, setStaffCallType] = useState<StaffCallType>("GENERAL");
   const [staffCallMessage, setStaffCallMessage] = useState("");
   const [basicRequestSelected, setBasicRequestSelected] = useState<Set<string>>(new Set());
+  const [settingsPasswordOpen, setSettingsPasswordOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsPassword, setSettingsPassword] = useState("");
+  const [settingsPasswordError, setSettingsPasswordError] = useState("");
+  const [draftHeaderNavVisible, setDraftHeaderNavVisible] = useState(true);
 
   const customerOrderType = toCustomerOrderType(orderType);
 
@@ -299,6 +308,14 @@ export function KioskHome() {
     queryFn: () => staffCallApi.getActiveCustomerCalls(tableName),
     enabled: tableName.trim().length > 0,
     refetchInterval: 3000,
+  });
+
+  const {
+    data: siteSetting,
+  } = useQuery({
+    queryKey: ["site-settings"],
+    queryFn: siteSettingApi.get,
+    staleTime: 1000 * 10,
   });
 
   const cartItems = useMemo(
@@ -453,6 +470,24 @@ export function KioskHome() {
     },
   });
 
+  const updateKioskHeaderNavMutation = useMutation({
+    mutationFn: () =>
+      siteSettingApi.updateKioskHeaderNav({
+        password: settingsPassword,
+        headerNavVisible: draftHeaderNavVisible,
+      }),
+    onSuccess: (fresh) => {
+      queryClient.setQueryData(["site-settings"], fresh);
+      setSettingsPassword("");
+      setSettingsPasswordError("");
+      setSettingsOpen(false);
+      toast.success("키오스크 설정을 저장했습니다.");
+    },
+    onError: (e) => {
+      toastError(e, "키오스크 설정을 저장하지 못했습니다.");
+    },
+  });
+
   const acknowledgeVisibleCancelNotices = () => {
     setDismissedCanceledOrderIds((current) => {
       const next = new Set(current);
@@ -495,6 +530,24 @@ export function KioskHome() {
       return;
     }
     setStaffCallDialogOpen(true);
+  };
+
+  const openSettingsPasswordDialog = () => {
+    setSettingsPassword("admin123");
+    setSettingsPasswordError("");
+    setSettingsPasswordOpen(true);
+  };
+
+  const confirmSettingsPassword = () => {
+    if (settingsPassword !== "admin123") {
+      setSettingsPasswordError("비밀번호가 올바르지 않습니다.");
+      return;
+    }
+
+    setSettingsPasswordError("");
+    setSettingsPasswordOpen(false);
+    setDraftHeaderNavVisible(siteSetting?.headerNavVisible ?? true);
+    setSettingsOpen(true);
   };
 
   const submitOrder = () => {
@@ -830,19 +883,30 @@ export function KioskHome() {
                     </div>
                   ) : null}
 
-                  <button
-                    type="button"
-                    onClick={openStaffCallDialog}
-                    className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background text-sm font-medium transition-colors hover:bg-accent"
-                  >
-                    <Phone className="h-4 w-4" />
-                    직원 호출
-                    {activeStaffCalls.length > 0 ? (
-                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white">
-                        {activeStaffCalls.length}
-                      </span>
-                    ) : null}
-                  </button>
+                  <div className="grid grid-cols-[1fr_44px] gap-2">
+                    <button
+                      type="button"
+                      onClick={openStaffCallDialog}
+                      className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background text-sm font-medium transition-colors hover:bg-accent"
+                    >
+                      <Phone className="h-4 w-4" />
+                      직원 호출
+                      {activeStaffCalls.length > 0 ? (
+                        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white">
+                          {activeStaffCalls.length}
+                        </span>
+                      ) : null}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="키오스크 설정"
+                      title="키오스크 설정"
+                      onClick={openSettingsPasswordDialog}
+                      className="flex h-11 w-11 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    >
+                      <Settings className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
             </>
           </div>
@@ -1075,6 +1139,117 @@ export function KioskHome() {
                 className="h-10 rounded-md bg-primary px-4 text-sm font-bold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {createStaffCallMutation.isPending ? "요청 중" : "요청하기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {settingsPasswordOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              confirmSettingsPassword();
+            }}
+            className="w-full max-w-sm rounded-lg border border-border bg-background p-5 shadow-xl"
+          >
+            <h2 className="text-lg font-black">키오스크 설정</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              설정을 변경하려면 관리자 비밀번호를 입력해주세요.
+            </p>
+            <div className="mt-4">
+              <label className="text-sm font-bold" htmlFor="kiosk-settings-password">
+                비밀번호
+              </label>
+              <PasswordInput
+                id="kiosk-settings-password"
+                value={settingsPassword}
+                autoFocus
+                onChange={(event) => {
+                  setSettingsPassword(event.target.value);
+                  setSettingsPasswordError("");
+                }}
+                invalid={!!settingsPasswordError}
+                className="mt-2 h-11"
+              />
+              {settingsPasswordError ? (
+                <p className="mt-2 text-xs font-semibold text-destructive">
+                  {settingsPasswordError}
+                </p>
+              ) : null}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsPasswordOpen(false);
+                  setSettingsPassword("");
+                  setSettingsPasswordError("");
+                }}
+                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent"
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                className="rounded-md bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground hover:opacity-90"
+              >
+                확인
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+      {settingsOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+        >
+          <div className="w-full max-w-md rounded-lg border border-border bg-background p-5 shadow-xl">
+            <h2 className="text-lg font-black">키오스크 설정</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              키오스크 화면 표시 방식을 조정합니다.
+            </p>
+
+            <div className="mt-5 flex items-center justify-between gap-4 rounded-md border border-border bg-muted/30 p-4">
+              <div>
+                <p className="text-sm font-black">헤더 네비 출력 여부</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  끄면 키오스크 화면에서 상단 헤더가 숨겨집니다.
+                </p>
+              </div>
+              <Switch
+                checked={draftHeaderNavVisible}
+                onCheckedChange={setDraftHeaderNavVisible}
+                aria-label="헤더 네비 출력 여부"
+              />
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={updateKioskHeaderNavMutation.isPending}
+                onClick={() => {
+                  setSettingsOpen(false);
+                  setSettingsPassword("");
+                  setSettingsPasswordError("");
+                }}
+                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-60"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={updateKioskHeaderNavMutation.isPending}
+                onClick={() => updateKioskHeaderNavMutation.mutate()}
+                className="rounded-md bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground hover:opacity-90 disabled:opacity-60"
+              >
+                {updateKioskHeaderNavMutation.isPending ? "저장 중" : "저장"}
               </button>
             </div>
           </div>

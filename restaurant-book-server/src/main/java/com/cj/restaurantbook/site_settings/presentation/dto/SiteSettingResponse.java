@@ -8,6 +8,7 @@ public record SiteSettingResponse(
         String heroImageUrl,
         String introTitle,
         String introSubtitle,
+        Boolean headerNavVisible,
         Instant updatedAt
 ) {
     public static SiteSettingResponse from(SiteSetting s) {
@@ -15,6 +16,7 @@ public record SiteSettingResponse(
                 s.getHeroImageUrl(),
                 s.getIntroTitle(),
                 s.getIntroSubtitle(),
+                s.isHeaderNavVisible(),
                 s.getUpdatedAt()
         );
     }

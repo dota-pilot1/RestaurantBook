@@ -82,6 +82,7 @@ public class SecurityConfig {
                                 "/api/auth/email/verify-code"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/site-settings").permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/api/site-settings/kiosk/header-nav").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/navigation-menus").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/tables/active").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/sale-menu-categories").permitAll()
