@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Bell,
   Check,
   XCircle,
   ImageIcon,
@@ -174,7 +173,6 @@ export function KioskHome() {
   const [staffCallDialogOpen, setStaffCallDialogOpen] = useState(false);
   const [staffCallType, setStaffCallType] = useState<StaffCallType>("GENERAL");
   const [staffCallMessage, setStaffCallMessage] = useState("");
-  const [basicRequestOpen, setBasicRequestOpen] = useState(false);
   const [basicRequestSelected, setBasicRequestSelected] = useState<Set<string>>(new Set());
 
   const customerOrderType = toCustomerOrderType(orderType);
@@ -406,34 +404,20 @@ export function KioskHome() {
   });
 
   const createStaffCallMutation = useMutation({
-    mutationFn: () =>
-      staffCallApi.createCustomerCall({
+    mutationFn: () => {
+      const quickRequests = [...basicRequestSelected];
+      const customMessage = staffCallMessage.trim();
+      const messageParts = [...quickRequests, customMessage].filter(Boolean);
+      return staffCallApi.createCustomerCall({
         tableName,
-        type: staffCallType,
-        message: staffCallMessage.trim() || null,
-      }),
+        type: quickRequests.length > 0 ? "REFILL" : staffCallType,
+        message: messageParts.length > 0 ? messageParts.join(", ") : null,
+      });
+    },
     onSuccess: () => {
       setStaffCallDialogOpen(false);
       setStaffCallMessage("");
       setStaffCallType("GENERAL");
-      queryClient.invalidateQueries({ queryKey: ["customer-active-staff-calls", tableName] });
-      queryClient.refetchQueries({ queryKey: ["customer-active-staff-calls", tableName], type: "active" });
-      toast.success("직원을 호출했습니다.");
-    },
-    onError: (e) => {
-      toastError(e, "직원을 호출하지 못했습니다.");
-    },
-  });
-
-  const basicRequestMutation = useMutation({
-    mutationFn: (items: string[]) =>
-      staffCallApi.createCustomerCall({
-        tableName,
-        type: "REFILL",
-        message: items.join(", "),
-      }),
-    onSuccess: () => {
-      setBasicRequestOpen(false);
       setBasicRequestSelected(new Set());
       queryClient.invalidateQueries({ queryKey: ["customer-active-staff-calls", tableName] });
       queryClient.refetchQueries({ queryKey: ["customer-active-staff-calls", tableName], type: "active" });
@@ -508,10 +492,6 @@ export function KioskHome() {
   const openStaffCallDialog = () => {
     if (!tableName.trim()) {
       toast.error("테이블명이 설정되어야 호출할 수 있습니다.");
-      return;
-    }
-    if (activeStaffCalls.length > 0) {
-      toast.info("이미 호출이 진행 중입니다.");
       return;
     }
     setStaffCallDialogOpen(true);
@@ -850,29 +830,19 @@ export function KioskHome() {
                     </div>
                   ) : null}
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setBasicRequestOpen(true)}
-                      className="flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-background text-sm font-medium transition-colors hover:bg-accent"
-                    >
-                      <Bell className="h-4 w-4" />
-                      기본 요청
-                    </button>
-                    <button
-                      type="button"
-                      onClick={openStaffCallDialog}
-                      className="flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-background text-sm font-medium transition-colors hover:bg-accent"
-                    >
-                      <Phone className="h-4 w-4" />
-                      직원 호출
-                      {activeStaffCalls.length > 0 ? (
-                        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white">
-                          {activeStaffCalls.length}
-                        </span>
-                      ) : null}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={openStaffCallDialog}
+                    className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background text-sm font-medium transition-colors hover:bg-accent"
+                  >
+                    <Phone className="h-4 w-4" />
+                    직원 호출
+                    {activeStaffCalls.length > 0 ? (
+                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white">
+                        {activeStaffCalls.length}
+                      </span>
+                    ) : null}
+                  </button>
                 </div>
             </>
           </div>
@@ -990,45 +960,91 @@ export function KioskHome() {
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
         >
-          <div className="w-full max-w-md rounded-lg border border-border bg-background p-5 shadow-xl">
+          <div className="w-full max-w-3xl rounded-lg border border-border bg-background p-5 shadow-xl">
             <h2 className="text-lg font-black">직원 호출</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {tableName ? `${tableName}에서 직원을 호출합니다.` : "테이블명이 필요합니다."}
             </p>
 
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {(["GENERAL", "REFILL", "QUESTION", "PAYMENT", "OTHER"] as StaffCallType[]).map((type) => {
-                const selected = staffCallType === type;
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setStaffCallType(type)}
-                    className={cn(
-                      "h-12 rounded-md border text-sm font-bold transition-colors",
-                      selected
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-background hover:bg-accent",
-                    )}
-                  >
-                    {staffCallTypeLabel[type]}
-                  </button>
-                );
-              })}
-            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <section className="rounded-md border border-border bg-muted/30 p-4">
+                <h3 className="text-sm font-black">기본 요청</h3>
+                <div className="mt-3 flex flex-col gap-2">
+                  {(["물", "냅킨", "앞접시", "그릇 치워주세요"] as const).map((item) => {
+                    const checked = basicRequestSelected.has(item);
+                    return (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => {
+                          setBasicRequestSelected((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(item)) next.delete(item);
+                            else next.add(item);
+                            return next;
+                          });
+                        }}
+                        className={cn(
+                          "flex h-11 items-center gap-3 rounded-md border bg-background px-3 text-left text-sm font-bold transition-colors",
+                          checked
+                            ? "border-primary text-primary"
+                            : "border-border hover:bg-accent",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "flex h-5 w-5 shrink-0 items-center justify-center rounded border",
+                            checked
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-background",
+                          )}
+                        >
+                          {checked ? <Check className="h-3 w-3" /> : null}
+                        </span>
+                        <span>{item}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
 
-            <textarea
-              value={staffCallMessage}
-              onChange={(event) => setStaffCallMessage(event.target.value)}
-              rows={3}
-              maxLength={200}
-              placeholder={
-                staffCallType === "OTHER"
-                  ? "필요한 도움을 입력해주세요. (필수)"
-                  : "추가 메시지를 입력해주세요. (선택)"
-              }
-              className="mt-3 w-full resize-none rounded-md border border-border bg-background p-3 text-sm outline-none focus:border-primary"
-            />
+              <section className="rounded-md border border-border bg-background p-4">
+                <h3 className="text-sm font-black">직원 호출</h3>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {(["GENERAL", "REFILL", "QUESTION", "PAYMENT", "OTHER"] as StaffCallType[]).map((type) => {
+                    const selected = staffCallType === type;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setStaffCallType(type)}
+                        className={cn(
+                          "h-11 rounded-md border text-sm font-bold transition-colors",
+                          selected
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-background hover:bg-accent",
+                        )}
+                      >
+                        {staffCallTypeLabel[type]}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <textarea
+                  value={staffCallMessage}
+                  onChange={(event) => setStaffCallMessage(event.target.value)}
+                  rows={4}
+                  maxLength={200}
+                  placeholder={
+                    staffCallType === "OTHER" && basicRequestSelected.size === 0
+                      ? "필요한 도움을 입력해주세요. (필수)"
+                      : "추가 메시지를 입력해주세요. (선택)"
+                  }
+                  className="mt-3 w-full resize-none rounded-md border border-border bg-background p-3 text-sm outline-none focus:border-primary"
+                />
+              </section>
+            </div>
 
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -1038,6 +1054,7 @@ export function KioskHome() {
                   setStaffCallDialogOpen(false);
                   setStaffCallMessage("");
                   setStaffCallType("GENERAL");
+                  setBasicRequestSelected(new Set());
                 }}
                 className="h-10 rounded-md border border-border px-4 text-sm font-bold hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -1048,74 +1065,16 @@ export function KioskHome() {
                 disabled={
                   createStaffCallMutation.isPending ||
                   !tableName.trim() ||
-                  (staffCallType === "OTHER" && !staffCallMessage.trim())
+                  (
+                    basicRequestSelected.size === 0 &&
+                    staffCallType === "OTHER" &&
+                    !staffCallMessage.trim()
+                  )
                 }
                 onClick={() => createStaffCallMutation.mutate()}
                 className="h-10 rounded-md bg-primary px-4 text-sm font-bold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {createStaffCallMutation.isPending ? "호출 중" : "호출하기"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {basicRequestOpen ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
-        >
-          <div className="w-full max-w-sm rounded-lg border border-border bg-background p-5 shadow-xl">
-            <h2 className="text-lg font-black">기본 요청</h2>
-            <p className="mt-1 text-sm text-muted-foreground">필요한 항목을 선택해주세요.</p>
-
-            <div className="mt-4 flex flex-col gap-3">
-              {(["물", "냅킨", "앞접시", "그릇 치워주세요"] as const).map((item) => {
-                const checked = basicRequestSelected.has(item);
-                return (
-                  <label key={item} className="flex cursor-pointer items-center gap-3">
-                    <div
-                      onClick={() => {
-                        setBasicRequestSelected((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(item)) next.delete(item);
-                          else next.add(item);
-                          return next;
-                        });
-                      }}
-                      className={cn(
-                        "flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors",
-                        checked ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background",
-                      )}
-                    >
-                      {checked ? <Check className="h-3 w-3" /> : null}
-                    </div>
-                    <span className="text-sm font-medium">{item}</span>
-                  </label>
-                );
-              })}
-            </div>
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={basicRequestMutation.isPending}
-                onClick={() => {
-                  setBasicRequestOpen(false);
-                  setBasicRequestSelected(new Set());
-                }}
-                className="h-10 rounded-md border border-border px-4 text-sm font-bold hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                닫기
-              </button>
-              <button
-                type="button"
-                disabled={basicRequestMutation.isPending || basicRequestSelected.size === 0 || !tableName.trim()}
-                onClick={() => basicRequestMutation.mutate([...basicRequestSelected])}
-                className="h-10 rounded-md bg-primary px-4 text-sm font-bold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {basicRequestMutation.isPending ? "요청 중" : "요청하기"}
+                {createStaffCallMutation.isPending ? "요청 중" : "요청하기"}
               </button>
             </div>
           </div>
