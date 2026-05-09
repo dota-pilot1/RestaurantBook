@@ -637,10 +637,10 @@ export function KioskHome() {
   const isError = categoriesError || productsError;
 
   return (
-    <main className="min-h-[calc(100vh-3.5rem)] bg-zinc-50 px-4 py-4">
-      <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[1fr_360px]">
-        <section className="min-w-0 space-y-4">
-          <div className="flex flex-col gap-4 rounded-lg border border-zinc-300 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+    <main className="h-[calc(100vh-3.5rem)] overflow-hidden bg-zinc-50 px-4 py-4">
+      <div className="mx-auto grid h-full max-w-7xl gap-4 lg:grid-cols-[1fr_360px]">
+        <section className="flex min-w-0 flex-col gap-4 overflow-hidden">
+          <div className="flex flex-shrink-0 flex-col gap-4 rounded-lg border border-zinc-300 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <span className="flex h-11 w-11 items-center justify-center rounded-md bg-primary text-primary-foreground">
                 <Utensils className="h-5 w-5" />
@@ -668,7 +668,7 @@ export function KioskHome() {
             </div>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="flex-shrink-0 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {tabs.map((tab) => {
               const active =
                 activeTab.type === tab.type &&
@@ -692,39 +692,41 @@ export function KioskHome() {
             })}
           </div>
 
-          {isLoading ? (
-            <StatePanel message="메뉴를 불러오는 중입니다." />
-          ) : isError ? (
-            <StatePanel message="메뉴를 불러오지 못했습니다." tone="error" />
-          ) : products.length === 0 ? (
-            <StatePanel
-              message={
-                activeTab.type === "SET"
-                  ? "등록된 세트 메뉴가 없습니다."
-                  : "표시할 메뉴가 없습니다."
-              }
-            />
-          ) : (
-            <div id="kiosk-menu-list" className="grid scroll-mt-24 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {products.map((product) => {
-                const key = toCartKey(product.type, product.id);
-                return (
-                  <MenuCard
-                    key={key}
-                    product={product}
-                    quantity={cart[key]?.quantity ?? 0}
-                    onMinus={() => updateQuantity(product, -1)}
-                    onPlus={() => updateQuantity(product, 1)}
-                    onToggle={() => toggleProductSelection(product)}
-                  />
-                );
-              })}
-            </div>
-          )}
+          <div className="flex-1 overflow-y-auto pr-1">
+            {isLoading ? (
+              <StatePanel message="메뉴를 불러오는 중입니다." />
+            ) : isError ? (
+              <StatePanel message="메뉴를 불러오지 못했습니다." tone="error" />
+            ) : products.length === 0 ? (
+              <StatePanel
+                message={
+                  activeTab.type === "SET"
+                    ? "등록된 세트 메뉴가 없습니다."
+                    : "표시할 메뉴가 없습니다."
+                }
+              />
+            ) : (
+              <div id="kiosk-menu-list" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {products.map((product) => {
+                  const key = toCartKey(product.type, product.id);
+                  return (
+                    <MenuCard
+                      key={key}
+                      product={product}
+                      quantity={cart[key]?.quantity ?? 0}
+                      onMinus={() => updateQuantity(product, -1)}
+                      onPlus={() => updateQuantity(product, 1)}
+                      onToggle={() => toggleProductSelection(product)}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </section>
 
-        <aside className="lg:sticky lg:top-[4.5rem] lg:self-start">
-          <div className="overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+        <aside className="flex h-full flex-col overflow-hidden">
+          <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm">
             <div className="flex items-center justify-between border-b border-zinc-300 bg-zinc-50 px-4 py-3">
               <div className="flex items-center gap-2">
                 <ShoppingBag className="h-4 w-4 text-muted-foreground" />
@@ -747,7 +749,7 @@ export function KioskHome() {
             </div>
 
             <>
-                <div className="divide-y divide-border">
+                <div className="flex-1 divide-y divide-border overflow-y-auto">
                   {acceptedOrders.length > 0 && (
                     <AcceptedOrdersSummary
                       orders={acceptedOrders}
