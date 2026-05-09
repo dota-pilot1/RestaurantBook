@@ -1629,7 +1629,7 @@ function MenuCard({
           </div>
         </>
       )}
-      <div className="relative h-28 overflow-hidden bg-zinc-100">
+      <div className="relative h-28 overflow-hidden rounded-t-lg bg-zinc-100">
         {product.imageUrl ? (
           <div
             aria-label={product.name}
