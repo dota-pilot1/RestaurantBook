@@ -1600,12 +1600,6 @@ function MenuCard({
   const canToggle = !soldOut || quantity > 0;
 
   return (
-    <div className="relative">
-      {quantity > 0 && (
-        <div className="absolute -right-2.5 -top-2.5 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 shadow-md">
-          <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
-        </div>
-      )}
     <article
       aria-label={quantity > 0 ? `${product.name} 선택 취소` : `${product.name} 담기`}
       className={`relative rounded-lg border bg-white transition-colors ${
@@ -1627,7 +1621,12 @@ function MenuCard({
       tabIndex={canToggle ? 0 : -1}
     >
       {quantity > 0 && (
-        <div className="pointer-events-none absolute inset-0 z-20 rounded-lg ring-2 ring-inset ring-zinc-950" />
+        <>
+          <div className="pointer-events-none absolute inset-0 z-20 rounded-lg ring-2 ring-inset ring-zinc-950" />
+          <div className="absolute right-2 top-2 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 shadow-md">
+            <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+          </div>
+        </>
       )}
       <div className="relative h-28 overflow-hidden bg-zinc-100">
         {product.imageUrl ? (
@@ -1716,7 +1715,6 @@ function MenuCard({
         </div>
       </div>
     </article>
-    </div>
   );
 }
 
