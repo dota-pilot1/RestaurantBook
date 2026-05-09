@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { FolderTree, Plus, Trash2, X } from "lucide-react";
+import { Download, FolderTree, Plus, Trash2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { saleMenuApi } from "@/entities/sale-menu/api/saleMenuApi";
 import type { SaleMenu, SaleMenuFilters, SaleMenuStatus } from "@/entities/sale-menu/model/types";
@@ -21,6 +21,7 @@ export function SaleMenuManagement() {
   const [deleteTarget, setDeleteTarget] = useState<SaleMenu | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
+  const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
 
   const cleanFilters = useMemo(() => ({
     ...filters,
@@ -101,12 +102,73 @@ export function SaleMenuManagement() {
 
   const isMutating = updateMutation.isPending || bulkUpdateMutation.isPending || bulkDeleteMutation.isPending;
 
+  const handleDownloadExcel = async () => {
+    if (!sortedMenus.length) return;
+
+    setIsDownloadingExcel(true);
+    try {
+      const { utils, writeFile } = await import("xlsx");
+      const rows = sortedMenus.map((menu) => ({
+        ID: menu.id,
+        메뉴명: menu.name,
+        설명: menu.description ?? "",
+        카테고리: menu.category?.name ?? "미분류",
+        "가격(원)": menu.price,
+        "판매 상태": EXCEL_STATUS_LABEL[menu.status],
+        "매장 주문": menu.availableDineIn ? "가능" : "불가",
+        "포장 주문": menu.availableTakeout ? "가능" : "불가",
+        "조리 필요": menu.requiresCooking ? "필요" : "불필요",
+        "고객 노출": menu.visible ? "노출" : "미노출",
+        "정렬 순서": menu.displayOrder,
+        "이미지 URL": menu.imageUrl ?? "",
+        생성일: formatExcelDateTime(menu.createdAt),
+        수정일: formatExcelDateTime(menu.updatedAt),
+      }));
+
+      const ws = utils.json_to_sheet(rows);
+      ws["!cols"] = [
+        { wch: 8 },
+        { wch: 20 },
+        { wch: 32 },
+        { wch: 14 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 10 },
+        { wch: 10 },
+        { wch: 10 },
+        { wch: 10 },
+        { wch: 10 },
+        { wch: 48 },
+        { wch: 20 },
+        { wch: 20 },
+      ];
+
+      const wb = utils.book_new();
+      utils.book_append_sheet(wb, ws, "판매메뉴");
+      writeFile(wb, `판매메뉴_${formatDownloadTimestamp(new Date())}.xlsx`);
+      toast.success("엑셀 파일을 다운로드했습니다.");
+    } catch (e) {
+      toastError(e, "엑셀 다운로드에 실패했습니다.");
+    } finally {
+      setIsDownloadingExcel(false);
+    }
+  };
+
   if (isLoading) return <p className="text-sm text-muted-foreground">로딩 중...</p>;
   if (isError) return <p className="text-sm text-destructive">데이터를 불러오지 못했습니다.</p>;
 
   return (
     <>
       <div className="mb-4 flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={handleDownloadExcel}
+          disabled={isDownloadingExcel || sortedMenus.length === 0}
+          className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Download className="h-4 w-4" />
+          {isDownloadingExcel ? "다운로드 중..." : "엑셀 다운로드"}
+        </button>
         <Link
           href="/sale-menu-categories"
           className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm font-medium hover:bg-accent"
@@ -183,6 +245,38 @@ export function SaleMenuManagement() {
       />
     </>
   );
+}
+
+const EXCEL_STATUS_LABEL: Record<SaleMenuStatus, string> = {
+  ACTIVE: "판매중",
+  SOLD_OUT: "품절",
+  HIDDEN: "숨김",
+};
+
+function formatDownloadTimestamp(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+    "_",
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+  ].join("");
+}
+
+function formatExcelDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
 
 function BulkActionBar({

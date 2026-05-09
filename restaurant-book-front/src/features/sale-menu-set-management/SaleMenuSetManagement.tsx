@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { SaleMenuStatus } from "@/entities/sale-menu/model/types";
 import { saleMenuSetApi } from "@/entities/sale-menu-set/api/saleMenuSetApi";
 import type { SaleMenuSet, SaleMenuSetFilters } from "@/entities/sale-menu-set/model/types";
 import { toast, toastError } from "@/shared/lib/toast";
@@ -16,6 +17,7 @@ export function SaleMenuSetManagement() {
   const [filters, setFilters] = useState<SaleMenuSetFilters>({});
   const [formTarget, setFormTarget] = useState<SaleMenuSet | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<SaleMenuSet | null>(null);
+  const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
 
   const cleanFilters = useMemo(() => ({
     ...filters,
@@ -52,12 +54,71 @@ export function SaleMenuSetManagement() {
     onError: (e) => toastError(e, "삭제에 실패했습니다."),
   });
 
+  const handleDownloadExcel = async () => {
+    if (!sortedSets.length) return;
+
+    setIsDownloadingExcel(true);
+    try {
+      const { utils, writeFile } = await import("xlsx");
+      const rows = sortedSets.map((set) => ({
+        ID: set.id,
+        세트명: set.name,
+        설명: set.description ?? "",
+        구성: set.items.map((item) => `${item.saleMenu.name} x${item.quantity}`).join(", "),
+        "가격(원)": set.price,
+        "판매 상태": EXCEL_STATUS_LABEL[set.status],
+        "매장 주문": set.availableDineIn ? "가능" : "불가",
+        "포장 주문": set.availableTakeout ? "가능" : "불가",
+        "고객 노출": set.visible ? "노출" : "미노출",
+        "정렬 순서": set.displayOrder,
+        "이미지 URL": set.imageUrl ?? "",
+        생성일: formatExcelDateTime(set.createdAt),
+        수정일: formatExcelDateTime(set.updatedAt),
+      }));
+
+      const ws = utils.json_to_sheet(rows);
+      ws["!cols"] = [
+        { wch: 8 },
+        { wch: 20 },
+        { wch: 32 },
+        { wch: 48 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 10 },
+        { wch: 10 },
+        { wch: 10 },
+        { wch: 10 },
+        { wch: 48 },
+        { wch: 20 },
+        { wch: 20 },
+      ];
+
+      const wb = utils.book_new();
+      utils.book_append_sheet(wb, ws, "세트메뉴");
+      writeFile(wb, `세트메뉴_${formatDownloadTimestamp(new Date())}.xlsx`);
+      toast.success("엑셀 파일을 다운로드했습니다.");
+    } catch (e) {
+      toastError(e, "엑셀 다운로드에 실패했습니다.");
+    } finally {
+      setIsDownloadingExcel(false);
+    }
+  };
+
   if (isLoading) return <p className="text-sm text-muted-foreground">로딩 중...</p>;
   if (isError) return <p className="text-sm text-destructive">데이터를 불러오지 못했습니다.</p>;
 
   return (
     <>
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={handleDownloadExcel}
+          disabled={isDownloadingExcel || sortedSets.length === 0}
+          className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Download className="h-4 w-4" />
+          {isDownloadingExcel ? "다운로드 중..." : "엑셀 다운로드"}
+        </button>
         <button
           type="button"
           onClick={() => setFormTarget("new")}
@@ -115,4 +176,36 @@ function toUpdateBody(set: SaleMenuSet, patch: Partial<SaleMenuSet>) {
       displayOrder: item.displayOrder,
     })),
   };
+}
+
+const EXCEL_STATUS_LABEL: Record<SaleMenuStatus, string> = {
+  ACTIVE: "판매중",
+  SOLD_OUT: "품절",
+  HIDDEN: "숨김",
+};
+
+function formatDownloadTimestamp(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+    "_",
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+  ].join("");
+}
+
+function formatExcelDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
