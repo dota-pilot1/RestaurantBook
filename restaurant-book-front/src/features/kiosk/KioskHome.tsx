@@ -1608,7 +1608,7 @@ function MenuCard({
       )}
     <article
       aria-label={quantity > 0 ? `${product.name} 선택 취소` : `${product.name} 담기`}
-      className={`relative overflow-hidden rounded-lg border bg-white transition-colors ${
+      className={`relative rounded-lg border bg-white transition-colors ${
         !canToggle
           ? "opacity-75"
           : "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
