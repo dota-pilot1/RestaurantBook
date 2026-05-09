@@ -7,6 +7,7 @@ import { ja } from "./resources/ja";
 import { zh } from "./resources/zh";
 
 const resources = { ko, en, ja, zh };
+const namespaces = ["common", "nav", "auth", "form", "guide"] as const;
 
 export const SUPPORTED_LANGUAGES = [
   { code: "ko", label: "한국어", short: "KO" },
@@ -25,8 +26,14 @@ if (!i18n.isInitialized) {
     lng: "ko",
     fallbackLng: "en",
     defaultNS: "common",
-    ns: ["common", "nav", "auth", "form", "guide"],
+    ns: namespaces,
     interpolation: { escapeValue: false },
+  });
+} else {
+  Object.entries(resources).forEach(([lng, bundles]) => {
+    namespaces.forEach((ns) => {
+      i18n.addResourceBundle(lng, ns, bundles[ns], true, true);
+    });
   });
 }
 

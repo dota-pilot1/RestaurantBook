@@ -10,7 +10,7 @@ import {
 } from "@/shared/i18n";
 
 export function LanguageSelect() {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation("common");
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -56,7 +56,8 @@ export function LanguageSelect() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label="Language"
+        aria-label={t("language")}
+        title={t("language")}
         className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background px-2.5 text-foreground transition-colors hover:bg-accent"
       >
         <Globe className="h-4 w-4 text-muted-foreground" />

@@ -13,7 +13,6 @@ import {
   Clock,
   Mail,
   Phone,
-  User,
 } from "lucide-react";
 
 const steps = [

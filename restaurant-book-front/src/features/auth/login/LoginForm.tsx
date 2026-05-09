@@ -61,7 +61,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     try {
       const user = await authActions.login(values.email, values.password);
       if (user.role.code === "ROLE_CUSTOMER" && !tableName.trim()) {
-        setFormError("고객 로그인은 테이블을 먼저 선택해주세요.");
+        setFormError(t("tableRequiredForCustomer"));
         return;
       }
       tableSessionStorage.setTableName(tableName);
@@ -70,9 +70,9 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     } catch (e) {
       const apiError = getApiError(e);
       if (apiError?.code === "AUTH_003") {
-        setError("password", { type: "server", message: apiError.message });
+        setError("password", { type: "server", message: t("invalidCredentials") });
       } else if (apiError?.code === "AUTH_004") {
-        setError("email", { type: "server", message: apiError.message });
+        setError("email", { type: "server", message: t("accountInactive") });
       } else {
         setFormError(apiError?.message ?? t("loginFailed"));
       }
@@ -82,9 +82,9 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
       <FormField
-        label="테이블 선택"
+        label={t("tableSelect")}
         htmlFor="login-table-name"
-        hint="이 브라우저에서 사용할 테이블을 선택합니다."
+        hint={t("tableSelectHint")}
       >
         {tables.length > 0 ? (
           <div className="flex items-center gap-2">
@@ -92,15 +92,15 @@ export function LoginForm({ nextPath }: LoginFormProps) {
               <SelectInput
                 value={tableName}
                 onValueChange={setTableName}
-                placeholder="테이블을 선택하세요"
+                placeholder={t("tableSelectPlaceholder")}
                 options={tables.map((t) => ({ value: t.name, label: t.name }))}
               />
             </div>
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
-              aria-label="전체 테이블 목록에서 선택"
-              title="전체 테이블 목록에서 선택"
+              aria-label={t("openTablePicker")}
+              title={t("openTablePicker")}
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <LayoutGrid className="h-4 w-4" />
@@ -110,7 +110,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
           <TextInput
             id="login-table-name"
             autoComplete="off"
-            placeholder="예: 3번 테이블"
+            placeholder={t("tableSelectFallbackPlaceholder")}
             value={tableName}
             onChange={(event) => setTableName(event.target.value)}
           />

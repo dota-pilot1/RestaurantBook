@@ -6,6 +6,7 @@ import {
   ArrowRight,
   BadgeCheck,
   BarChart3,
+  CalendarCheck2,
   ClipboardList,
   Eye,
   LayoutDashboard,
@@ -84,8 +85,8 @@ const adminSections = [
 const operationLinks = [
   { href: "/manager", label: "매니저 대시보드", icon: LayoutDashboard },
   { href: "/sales", label: "매출 상세", icon: BarChart3 },
+  { href: "/admin/calendar", label: "일정 관리", icon: CalendarCheck2 },
   { href: "/kitchen-board", label: "주방 현황", icon: Utensils },
-  { href: "/staff", label: "직원 주문 보드", icon: ClipboardList },
 ];
 
 export function AdminDashboard() {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogIn } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { authActions } from "@/entities/user/model/authStore";
 import { getApiError } from "@/shared/api/errors";
 import { getPostLoginPath } from "@/entities/user/lib/roleRoutes";
@@ -26,13 +27,18 @@ const ROLE_BUTTON_STYLES: Record<string, string> = {
 
 export function TestLoginButtons({ nextPath, onError, tableName = "" }: Props) {
   const router = useRouter();
+  const { t } = useTranslation("auth");
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   if (!TEST_LOGIN_ENABLED) return null;
 
   const handleLogin = async (account: TestAccount) => {
+    const roleLabel = t(`roles.${account.roleCode}`, {
+      ns: "nav",
+      defaultValue: account.label,
+    });
     if (account.roleCode === "ROLE_CUSTOMER" && !tableName.trim()) {
-      onError?.("고객 로그인은 테이블을 먼저 선택해주세요.");
+      onError?.(t("tableRequiredForCustomer"));
       return;
     }
     setPendingEmail(account.email);
@@ -40,11 +46,11 @@ export function TestLoginButtons({ nextPath, onError, tableName = "" }: Props) {
     try {
       const user = await authActions.login(account.email, account.password);
       tableSessionStorage.setTableName(tableName);
-      toast.success(`${account.label} 계정으로 로그인되었습니다.`);
+      toast.success(t("testLoginSuccess", { role: roleLabel }));
       router.replace(getPostLoginPath(user, nextPath));
     } catch (e) {
       const apiError = getApiError(e);
-      onError?.(apiError?.message ?? "테스트 로그인에 실패했습니다.");
+      onError?.(apiError?.message ?? t("testLoginFailed"));
     } finally {
       setPendingEmail(null);
     }
@@ -54,23 +60,31 @@ export function TestLoginButtons({ nextPath, onError, tableName = "" }: Props) {
     <section className="rounded-md border border-dashed border-border bg-muted/30 p-3">
       <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <LogIn className="h-3.5 w-3.5" />
-        테스트 계정
+        {t("testAccounts")}
       </div>
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
-        {TEST_ACCOUNTS.map((account) => (
-          <button
-            key={account.email}
-            type="button"
-            disabled={!!pendingEmail}
-            onClick={() => handleLogin(account)}
-            className={`h-8 rounded-md border px-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
-              ROLE_BUTTON_STYLES[account.roleCode] ?? "border-border bg-background text-foreground"
-            }`}
-            title={account.email}
-          >
-            {pendingEmail === account.email ? "로그인..." : account.label}
-          </button>
-        ))}
+        {TEST_ACCOUNTS.map((account) => {
+          const roleLabel = t(`roles.${account.roleCode}`, {
+            ns: "nav",
+            defaultValue: account.label,
+          });
+          return (
+            <button
+              key={account.email}
+              type="button"
+              disabled={!!pendingEmail}
+              onClick={() => handleLogin(account)}
+              className={`h-8 min-w-0 rounded-md border px-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
+                ROLE_BUTTON_STYLES[account.roleCode] ?? "border-border bg-background text-foreground"
+              }`}
+              title={account.email}
+            >
+              <span className="block truncate">
+                {pendingEmail === account.email ? t("testLoginPending") : roleLabel}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </section>
   );

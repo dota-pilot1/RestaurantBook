@@ -26,11 +26,11 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
 
   return (
     <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-muted/20 px-4 py-10 sm:py-14">
-      <div className="relative w-full max-w-6xl">
-        <div className="relative grid items-stretch overflow-hidden rounded-2xl border border-border bg-background shadow-[0_24px_70px_-18px_rgba(0,0,0,0.22)] ring-1 ring-black/5 lg:min-h-[680px] lg:grid-cols-[3fr_2fr]">
+      <div className="relative w-full max-w-7xl">
+        <div className="relative grid items-stretch overflow-hidden rounded-2xl border border-border bg-background shadow-[0_24px_70px_-18px_rgba(0,0,0,0.22)] ring-1 ring-black/5 lg:min-h-[680px] lg:grid-cols-[5fr_4fr]">
           <span
             aria-hidden
-            className="absolute bottom-8 top-8 hidden w-px bg-border lg:left-[60%] lg:block"
+            className="absolute bottom-8 top-8 hidden w-px bg-border lg:left-[55.555%] lg:block"
           />
 
           <section className="hidden h-full flex-col justify-between gap-8 bg-muted/10 p-8 lg:flex">
@@ -45,7 +45,7 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
               {heroImageUrl ? (
                 <Image
                   src={heroImageUrl}
-                  alt="대문 이미지"
+                  alt={t("heroImageAlt")}
                   fill
                   unoptimized
                   sizes="(max-width: 1024px) 100vw, 512px"
@@ -56,7 +56,7 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
                     <ImageIcon className="h-10 w-10" />
                     <span className="text-xs font-medium">
-                      {t("imagePlaceholder", { defaultValue: "소개 이미지 영역" })}
+                      {t("imagePlaceholder")}
                     </span>
                   </div>
                   <span className="absolute top-2 left-2 rounded-md bg-background/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground ring-1 ring-border">
@@ -73,15 +73,15 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
           </section>
 
           {/* Right page — form */}
-          <section className="relative flex h-full items-center justify-center p-6 sm:p-8">
+          <section className="relative flex h-full items-center justify-center p-6 sm:p-8 lg:px-10">
             <Link
               href="/about"
               className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
             >
               <Info className="h-3.5 w-3.5" />
-              서비스 소개
+              {t("serviceIntro")}
             </Link>
-            <div className="w-full max-w-sm space-y-5">
+            <div className="w-full max-w-lg space-y-5">
               <div className="space-y-1.5 text-center lg:text-left">
                 <h1 className="text-xl font-bold tracking-tight">{title}</h1>
                 <p className="text-sm text-muted-foreground">{subtitle}</p>

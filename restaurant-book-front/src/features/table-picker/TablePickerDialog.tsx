@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Check, MapPin, Search, Settings, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { restaurantTableApi } from "@/entities/restaurant-table/api/restaurantTableApi";
 import { cn } from "@/shared/lib/utils";
 import { TableManagementDialog } from "@/features/table-management/TableManagementDialog";
@@ -23,6 +24,7 @@ export function TablePickerDialog({
   onSelect,
   onClose,
 }: Props) {
+  const { t } = useTranslation("auth");
   const [keyword, setKeyword] = useState("");
   const [mounted, setMounted] = useState(false);
   const [managementOpen, setManagementOpen] = useState(false);
@@ -96,16 +98,16 @@ export function TablePickerDialog({
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div className="min-w-0">
             <h2 id="table-picker-title" className="text-base font-semibold">
-              테이블 선택
+              {t("tablePickerTitle")}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              사용할 테이블을 선택하세요.
+              {t("tablePickerDescription")}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="닫기"
+            aria-label={t("close", { ns: "common" })}
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="h-4 w-4" />
@@ -121,7 +123,7 @@ export function TablePickerDialog({
                 type="text"
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
-                placeholder="테이블 이름 검색"
+                placeholder={t("tableSearchPlaceholder")}
                 className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-ring/30"
               />
             </div>
@@ -129,8 +131,8 @@ export function TablePickerDialog({
               <button
                 type="button"
                 onClick={() => setManagementOpen(true)}
-                aria-label="테이블 관리"
-                title="테이블 관리"
+                aria-label={t("tableManage")}
+                title={t("tableManage")}
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
                 <Settings className="h-4 w-4" />
@@ -138,9 +140,9 @@ export function TablePickerDialog({
             )}
           </div>
           <div className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-            <span className="text-muted-foreground">현재 선택</span>
+            <span className="text-muted-foreground">{t("tableCurrentSelection")}</span>
             <span className="font-semibold text-foreground">
-              {currentTableName || "없음"}
+              {currentTableName || t("tableNoSelection")}
             </span>
           </div>
         </div>
@@ -148,13 +150,13 @@ export function TablePickerDialog({
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {isLoading ? (
             <div className="py-12 text-center text-sm text-muted-foreground">
-              테이블 목록을 불러오는 중...
+              {t("tableLoading")}
             </div>
           ) : filtered.length === 0 ? (
             <div className="py-12 text-center text-sm text-muted-foreground">
               {keyword.trim()
-                ? "검색 결과가 없습니다."
-                : "등록된 테이블이 없습니다."}
+                ? t("tableNoSearchResults")
+                : t("tableEmpty")}
             </div>
           ) : (
             <ul
@@ -203,8 +205,8 @@ export function TablePickerDialog({
         </div>
 
         <div className="flex items-center justify-between border-t border-border px-5 py-3 text-xs text-muted-foreground">
-          <span>총 {tables.length}개</span>
-          <span>Esc로 닫기</span>
+          <span>{t("tableTotalCount", { count: tables.length })}</span>
+          <span>{t("closeWithEsc")}</span>
         </div>
 
         {canManageTables && (
