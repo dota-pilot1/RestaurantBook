@@ -164,7 +164,7 @@ function OrderStatusBadge({ status }: { status: Order["status"] }) {
 export function KioskHome() {
   const queryClient = useQueryClient();
   const [orderType, setOrderType] = useState<KioskOrderType>("dine-in");
-  const [activeTab, setActiveTab] = useState<KioskTab>(SET_TAB);
+  const [activeTab, setActiveTab] = useState<KioskTab>({ type: "MENU", categoryId: -1, label: "" });
   const [cart, setCart] = useState<Record<CartItemKey, CartItem>>({});
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
   const [canceledOrder, setCanceledOrder] = useState<Order | null>(null);
@@ -245,12 +245,12 @@ export function KioskHome() {
 
   const tabs = useMemo<KioskTab[]>(
     () => [
-      SET_TAB,
       ...visibleCategories.map((category) => ({
         type: "MENU" as const,
         categoryId: category.id,
         label: category.name,
       })),
+      SET_TAB,
     ],
     [visibleCategories]
   );
@@ -258,7 +258,11 @@ export function KioskHome() {
   useEffect(() => {
     if (activeTab.type === "SET") return;
     if (visibleCategories.some((category) => category.id === activeTab.categoryId)) return;
-    setActiveTab(SET_TAB);
+    if (visibleCategories.length > 0) {
+      setActiveTab({ type: "MENU", categoryId: visibleCategories[0].id, label: visibleCategories[0].name });
+    } else {
+      setActiveTab(SET_TAB);
+    }
   }, [activeTab, visibleCategories]);
 
   const productFilters = useMemo(
