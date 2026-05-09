@@ -37,7 +37,7 @@ export function SaleMenuSetTable({ sets, isUpdating, onEdit, onDelete, onQuickUp
   return (
     <>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm text-muted-foreground">총 {sets.length}개 세트</span>
+        <span className="text-sm font-medium text-foreground">총 {sets.length}개 세트</span>
         <ViewToggle<ViewMode>
           value={viewMode}
           onChange={setViewMode}
@@ -92,11 +92,11 @@ export function SaleMenuSetTable({ sets, isUpdating, onEdit, onDelete, onQuickUp
                   <Td>
                     <div className="max-w-[260px]">
                       <p className="font-medium">{set.name}</p>
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">{set.description || "-"}</p>
+                      <p className="mt-1 truncate text-sm text-foreground/70">{set.description || "-"}</p>
                     </div>
                   </Td>
                   <Td>
-                    <p className="max-w-[280px] truncate text-xs text-muted-foreground">
+                    <p className="max-w-[320px] truncate text-sm text-foreground/75">
                       {formatItems(set)}
                     </p>
                   </Td>
@@ -115,7 +115,7 @@ export function SaleMenuSetTable({ sets, isUpdating, onEdit, onDelete, onQuickUp
                       onCheckedChange={(visible) => onQuickUpdate(set, { visible })}
                     />
                   </Td>
-                  <Td className="text-muted-foreground">{set.displayOrder}</Td>
+                  <Td className="font-medium text-foreground/75">{set.displayOrder}</Td>
                   <Td>
                     <RowActions set={set} onEdit={onEdit} onDelete={onDelete} />
                   </Td>
@@ -160,19 +160,19 @@ function SaleMenuSetCard({
             </div>
             <RowActions set={set} onEdit={onEdit} onDelete={onDelete} />
           </div>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{set.description || "-"}</p>
+          <p className="mt-1 line-clamp-2 text-sm leading-5 text-foreground/70">{set.description || "-"}</p>
         </div>
       </div>
 
       <div className="mt-3 rounded-md border border-border bg-muted/20 px-2.5 py-2">
-        <p className="text-[11px] font-medium text-muted-foreground">구성</p>
-        <p className="mt-1 line-clamp-2 text-xs leading-5">{formatItems(set)}</p>
+        <p className="text-xs font-semibold text-foreground/60">구성</p>
+        <p className="mt-1 line-clamp-2 text-sm leading-5 text-foreground/80">{formatItems(set)}</p>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
         <Info label="정렬" value={String(set.displayOrder)} />
         <div className="rounded-md border border-border bg-muted/20 px-2.5 py-2">
-          <p className="text-[11px] font-medium text-muted-foreground">주문 유형</p>
+          <p className="text-xs font-semibold text-foreground/60">주문 유형</p>
           <div className="mt-1">
             <OrderTypeBadges set={set} />
           </div>
@@ -182,7 +182,7 @@ function SaleMenuSetCard({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <StatusSelect set={set} disabled={isUpdating} onQuickUpdate={onQuickUpdate} />
         <div className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-2.5 py-1.5">
-          <span className="text-xs font-medium text-muted-foreground">노출</span>
+          <span className="text-xs font-semibold text-foreground/60">노출</span>
           <Switch
             checked={set.visible}
             disabled={isUpdating}
@@ -240,7 +240,7 @@ function OrderTypeBadges({ set }: { set: SaleMenuSet }) {
     <div className="flex gap-1">
       {set.availableDineIn && <Badge>매장</Badge>}
       {set.availableTakeout && <Badge>포장</Badge>}
-      {!set.availableDineIn && !set.availableTakeout && <span className="text-xs text-muted-foreground">-</span>}
+      {!set.availableDineIn && !set.availableTakeout && <span className="text-sm text-foreground/60">-</span>}
     </div>
   );
 }
@@ -279,8 +279,8 @@ function RowActions({
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-border bg-muted/20 px-2.5 py-2">
-      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
-      <p className="mt-1 truncate font-medium">{value}</p>
+      <p className="text-xs font-semibold text-foreground/60">{label}</p>
+      <p className="mt-1 truncate text-sm font-medium text-foreground/80">{value}</p>
     </div>
   );
 }
@@ -290,13 +290,13 @@ function formatItems(set: SaleMenuSet) {
 }
 
 function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium">{children}</span>;
+  return <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-semibold text-foreground/80">{children}</span>;
 }
 
 function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <th className={`px-4 py-2.5 text-left text-xs font-medium text-muted-foreground ${className}`}>{children}</th>;
+  return <th className={`px-4 py-2.5 text-left text-xs font-semibold text-foreground/60 ${className}`}>{children}</th>;
 }
 
 function Td({ children, className = "", colSpan }: { children: React.ReactNode; className?: string; colSpan?: number }) {
-  return <td colSpan={colSpan} className={`px-4 py-2.5 ${className}`}>{children}</td>;
+  return <td colSpan={colSpan} className={`px-4 py-3 ${className}`}>{children}</td>;
 }

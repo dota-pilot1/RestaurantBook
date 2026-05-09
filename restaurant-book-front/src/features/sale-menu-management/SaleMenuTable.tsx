@@ -65,7 +65,7 @@ export function SaleMenuTable({
             <span className="text-sm font-medium">전체 선택</span>
           </div>
         ) : (
-          <span className="text-sm text-muted-foreground">총 {menus.length}개 메뉴</span>
+          <span className="text-sm font-medium text-foreground">총 {menus.length}개 메뉴</span>
         )}
         <ViewToggle<ViewMode>
           value={viewMode}
@@ -146,7 +146,7 @@ export function SaleMenuTable({
                   <Td>
                     <div className="max-w-[260px]">
                       <p className="font-medium">{menu.name}</p>
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">{menu.description || "-"}</p>
+                      <p className="mt-1 truncate text-sm text-foreground/70">{menu.description || "-"}</p>
                     </div>
                   </Td>
                   <Td>{menu.category?.name ?? "-"}</Td>
@@ -173,7 +173,7 @@ export function SaleMenuTable({
                       onCheckedChange={(visible) => onQuickUpdate(menu, { visible })}
                     />
                   </Td>
-                  <Td className="text-muted-foreground">{menu.displayOrder}</Td>
+                  <Td className="font-medium text-foreground/75">{menu.displayOrder}</Td>
                   <Td>
                     <RowActions menu={menu} onEdit={onEdit} onDelete={onDelete} />
                   </Td>
@@ -230,7 +230,7 @@ function SaleMenuCard({
             </div>
             <RowActions menu={menu} onEdit={onEdit} onDelete={onDelete} />
           </div>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{menu.description || "-"}</p>
+          <p className="mt-1 line-clamp-2 text-sm leading-5 text-foreground/70">{menu.description || "-"}</p>
         </div>
       </div>
 
@@ -311,7 +311,7 @@ function OrderTypeBadges({ menu }: { menu: SaleMenu }) {
     <div className="flex gap-1">
       {menu.availableDineIn && <Badge>매장</Badge>}
       {menu.availableTakeout && <Badge>포장</Badge>}
-      {!menu.availableDineIn && !menu.availableTakeout && <span className="text-xs text-muted-foreground">-</span>}
+      {!menu.availableDineIn && !menu.availableTakeout && <span className="text-sm text-foreground/60">-</span>}
     </div>
   );
 }
@@ -350,8 +350,8 @@ function RowActions({
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-border bg-muted/20 px-2.5 py-2">
-      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
-      <p className="mt-1 truncate font-medium">{value}</p>
+      <p className="text-xs font-semibold text-foreground/60">{label}</p>
+      <p className="mt-1 truncate text-sm font-medium text-foreground/80">{value}</p>
     </div>
   );
 }
@@ -359,20 +359,20 @@ function Info({ label, value }: { label: string; value: string }) {
 function ToggleField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between rounded-md border border-border bg-muted/20 px-2.5 py-2">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="text-xs font-semibold text-foreground/60">{label}</span>
       {children}
     </div>
   );
 }
 
 function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium">{children}</span>;
+  return <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-semibold text-foreground/80">{children}</span>;
 }
 
 function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <th className={`px-4 py-2.5 text-left text-xs font-medium text-muted-foreground ${className}`}>{children}</th>;
+  return <th className={`px-4 py-2.5 text-left text-xs font-semibold text-foreground/60 ${className}`}>{children}</th>;
 }
 
 function Td({ children, className = "", colSpan }: { children: React.ReactNode; className?: string; colSpan?: number }) {
-  return <td colSpan={colSpan} className={`px-4 py-2.5 ${className}`}>{children}</td>;
+  return <td colSpan={colSpan} className={`px-4 py-3 ${className}`}>{children}</td>;
 }
