@@ -22,7 +22,16 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "RestaurantBook",
-  description: "한식당 주문 관리와 반찬 쇼핑몰",
+  description: "테이블 키오스크 주문 시스템",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "RestaurantBook",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export default function RootLayout({
@@ -34,6 +43,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeNoFlashScript }} />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <meta name="theme-color" content="#09090b" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
