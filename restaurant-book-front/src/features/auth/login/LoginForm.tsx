@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertCircle, LayoutGrid, LogIn } from "lucide-react";
+import * as Popover from "@radix-ui/react-popover";
+import { AlertCircle, LayoutGrid, LogIn, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { loginSchema, type LoginFormValues } from "@/shared/lib/validation/auth.schema";
 import { authActions } from "@/entities/user/model/authStore";
@@ -32,6 +33,8 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const [formError, setFormError] = useState<string | null>(null);
   const [tableName, setTableName] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [tablePopoverOpen, setTablePopoverOpen] = useState(false);
+  const tableSelectRef = useRef<HTMLDivElement>(null);
 
   const { data: tables = [] } = useQuery({
     queryKey: ["restaurant-tables-active"],
@@ -61,7 +64,8 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     try {
       const user = await authActions.login(values.email, values.password);
       if (user.role.code === "ROLE_CUSTOMER" && !tableName.trim()) {
-        setFormError(t("tableRequiredForCustomer"));
+        setTablePopoverOpen(true);
+        tableSelectRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
         return;
       }
       tableSessionStorage.setTableName(tableName);
@@ -87,15 +91,35 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         hint={t("tableSelectHint")}
       >
         {tables.length > 0 ? (
-          <div className="flex items-center gap-2">
-            <div className="flex-1">
-              <SelectInput
-                value={tableName}
-                onValueChange={setTableName}
-                placeholder={t("tableSelectPlaceholder")}
-                options={tables.map((t) => ({ value: t.name, label: t.name }))}
-              />
-            </div>
+          <div className="flex items-center gap-2" ref={tableSelectRef}>
+            <Popover.Root open={tablePopoverOpen} onOpenChange={setTablePopoverOpen}>
+              <Popover.Anchor asChild>
+                <div className="flex-1">
+                  <SelectInput
+                    value={tableName}
+                    onValueChange={(v) => { setTableName(v); setTablePopoverOpen(false); }}
+                    placeholder={t("tableSelectPlaceholder")}
+                    options={tables.map((t) => ({ value: t.name, label: t.name }))}
+                    invalid={tablePopoverOpen}
+                  />
+                </div>
+              </Popover.Anchor>
+              <Popover.Portal>
+                <Popover.Content
+                  side="top"
+                  align="start"
+                  sideOffset={6}
+                  className="z-50 flex items-center gap-2 rounded-md border border-destructive/50 bg-white px-3 py-2 text-sm text-destructive shadow-lg animate-in fade-in-0 zoom-in-95"
+                >
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{t("tableRequiredForCustomer")}</span>
+                  <Popover.Close className="ml-1 rounded p-0.5 hover:bg-destructive/20">
+                    <X className="h-3.5 w-3.5" />
+                  </Popover.Close>
+                  <Popover.Arrow className="fill-destructive/20" />
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
@@ -124,7 +148,15 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         onClose={() => setPickerOpen(false)}
       />
 
-      <TestLoginButtons nextPath={nextPath} onError={setFormError} tableName={tableName} />
+      <TestLoginButtons
+        nextPath={nextPath}
+        onError={setFormError}
+        onTableRequired={() => {
+          setTablePopoverOpen(true);
+          tableSelectRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }}
+        tableName={tableName}
+      />
 
       {formError && (
         <div

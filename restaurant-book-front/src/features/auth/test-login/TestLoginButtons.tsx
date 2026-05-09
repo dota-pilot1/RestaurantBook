@@ -14,6 +14,7 @@ import { TEST_ACCOUNTS, TEST_LOGIN_ENABLED, type TestAccount } from "./testAccou
 type Props = {
   nextPath?: string;
   onError?: (message: string) => void;
+  onTableRequired?: () => void;
   tableName?: string;
 };
 
@@ -25,7 +26,7 @@ const ROLE_BUTTON_STYLES: Record<string, string> = {
   ROLE_CUSTOMER: "border-slate-500/30 bg-slate-500/10 text-slate-600 hover:bg-slate-500/15",
 };
 
-export function TestLoginButtons({ nextPath, onError, tableName = "" }: Props) {
+export function TestLoginButtons({ nextPath, onError, onTableRequired, tableName = "" }: Props) {
   const router = useRouter();
   const { t } = useTranslation("auth");
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
@@ -38,7 +39,7 @@ export function TestLoginButtons({ nextPath, onError, tableName = "" }: Props) {
       defaultValue: account.label,
     });
     if (account.roleCode === "ROLE_CUSTOMER" && !tableName.trim()) {
-      onError?.(t("tableRequiredForCustomer"));
+      onTableRequired?.();
       return;
     }
     setPendingEmail(account.email);
