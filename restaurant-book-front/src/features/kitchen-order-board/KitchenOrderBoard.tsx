@@ -134,6 +134,7 @@ function KitchenOrderBoardContent() {
   const [cancelNoticeDialogOpen, setCancelNoticeDialogOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<(Order & { status: KitchenStatus }) | null>(null);
   const [cancelMessage, setCancelMessage] = useState("");
+  const [cancelError, setCancelError] = useState("");
 
   useOperationalOrdersWebSocket(true, (payload) => {
     if (payload.reason !== "CANCELED") {
@@ -265,9 +266,10 @@ function KitchenOrderBoardContent() {
     if (!cancelTarget || cancelMutation.isPending) return;
     const message = cancelMessage.trim();
     if (!message) {
-      toast.error("고객에게 표시할 취소 메시지를 입력해주세요.");
+      setCancelError("고객에게 표시할 취소 메시지를 입력해주세요.");
       return;
     }
+    setCancelError("");
     cancelMutation.mutate({ orderId: cancelTarget.id, message });
   };
 
@@ -506,18 +508,23 @@ function KitchenOrderBoardContent() {
             </p>
             <textarea
               value={cancelMessage}
-              onChange={(event) => setCancelMessage(event.target.value)}
+              onChange={(event) => { setCancelMessage(event.target.value); setCancelError(""); }}
               rows={4}
               maxLength={500}
-              className="mt-4 w-full resize-none rounded-md border border-border bg-background p-3 text-sm outline-none focus:border-primary"
+              autoFocus
+              className={`mt-4 w-full resize-none rounded-md border bg-background p-3 text-sm outline-none focus:border-primary ${cancelError ? "border-red-500" : "border-border"}`}
               placeholder="예: 재료 소진으로 주문이 취소되었습니다. 직원에게 문의해주세요."
             />
+            {cancelError && (
+              <p className="mt-1.5 text-sm font-medium text-red-600">{cancelError}</p>
+            )}
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setCancelTarget(null);
                   setCancelMessage("");
+                  setCancelError("");
                 }}
                 className="h-10 rounded-md border border-border px-4 text-sm font-bold hover:bg-accent"
               >
