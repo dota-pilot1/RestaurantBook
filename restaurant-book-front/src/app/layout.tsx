@@ -58,7 +58,7 @@ export default function RootLayout({
             </AuthInitializer>
           </QueryProvider>
         </I18nProvider>
-        <Toaster position="bottom-right" richColors />
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   );

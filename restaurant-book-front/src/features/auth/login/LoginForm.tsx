@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -34,7 +34,6 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const [tableName, setTableName] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [tablePopoverOpen, setTablePopoverOpen] = useState(false);
-  const tableSelectRef = useRef<HTMLDivElement>(null);
 
   const { data: tables = [] } = useQuery({
     queryKey: ["restaurant-tables-active"],
@@ -45,10 +44,21 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     setTableName(tableSessionStorage.getTableName());
   }, []);
 
+  useEffect(() => {
+    if (!tableName || tables.length === 0) return;
+    const tableExists = tables.some((table) => table.name === tableName);
+    if (tableExists) return;
+
+    setTableName("");
+    tableSessionStorage.setTableName("");
+  }, [tableName, tables]);
+
   const {
     register,
     handleSubmit,
+    setValue,
     setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -59,13 +69,19 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     },
   });
 
+  const focusTableSelect = () => {
+    document
+      .getElementById("login-table-select")
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     try {
       const user = await authActions.login(values.email, values.password);
       if (user.role.code === "ROLE_CUSTOMER" && !tableName.trim()) {
         setTablePopoverOpen(true);
-        tableSelectRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        focusTableSelect();
         return;
       }
       tableSessionStorage.setTableName(tableName);
@@ -91,7 +107,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         hint={t("tableSelectHint")}
       >
         {tables.length > 0 ? (
-          <div className="flex items-center gap-2" ref={tableSelectRef}>
+          <div id="login-table-select" className="flex items-center gap-2">
             <Popover.Root open={tablePopoverOpen} onOpenChange={setTablePopoverOpen}>
               <Popover.Anchor asChild>
                 <div className="flex-1">
@@ -150,10 +166,15 @@ export function LoginForm({ nextPath }: LoginFormProps) {
 
       <TestLoginButtons
         nextPath={nextPath}
+        onAccountSelected={(account) => {
+          setValue("email", account.email, { shouldValidate: true, shouldDirty: true });
+          setValue("password", account.password, { shouldValidate: true, shouldDirty: true });
+          clearErrors(["email", "password"]);
+        }}
         onError={setFormError}
         onTableRequired={() => {
           setTablePopoverOpen(true);
-          tableSelectRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+          focusTableSelect();
         }}
         tableName={tableName}
       />

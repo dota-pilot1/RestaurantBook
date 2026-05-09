@@ -50,6 +50,12 @@ public class Order {
     @Column(length = 500)
     private String cancelMessage;
 
+    @Column
+    private Instant kitchenCancelConfirmedAt;
+
+    @Column
+    private Instant kitchenCancelDismissedAt;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private final List<OrderItem> items = new ArrayList<>();
 
@@ -94,6 +100,8 @@ public class Order {
     public void cancel(String cancelMessage) {
         this.status = OrderStatus.CANCELED;
         this.cancelMessage = normalizeCancelMessage(cancelMessage);
+        this.kitchenCancelConfirmedAt = null;
+        this.kitchenCancelDismissedAt = null;
     }
 
     public void refund() {
@@ -106,6 +114,25 @@ public class Order {
 
     public void clearCancelMessage() {
         this.cancelMessage = null;
+    }
+
+    public void confirmKitchenCancelNotice() {
+        if (this.status != OrderStatus.CANCELED) {
+            throw new IllegalStateException("Invalid order status for cancel notice confirmation: " + this.status);
+        }
+        if (this.kitchenCancelConfirmedAt == null) {
+            this.kitchenCancelConfirmedAt = Instant.now();
+        }
+    }
+
+    public void dismissKitchenCancelNotice() {
+        if (this.status != OrderStatus.CANCELED) {
+            throw new IllegalStateException("Invalid order status for cancel notice dismissal: " + this.status);
+        }
+        if (this.kitchenCancelConfirmedAt == null) {
+            this.kitchenCancelConfirmedAt = Instant.now();
+        }
+        this.kitchenCancelDismissedAt = Instant.now();
     }
 
     public void accept() {

@@ -14,6 +14,7 @@ import { TEST_ACCOUNTS, TEST_LOGIN_ENABLED, type TestAccount } from "./testAccou
 type Props = {
   nextPath?: string;
   onError?: (message: string) => void;
+  onAccountSelected?: (account: TestAccount) => void;
   onTableRequired?: () => void;
   tableName?: string;
 };
@@ -26,7 +27,13 @@ const ROLE_BUTTON_STYLES: Record<string, string> = {
   ROLE_CUSTOMER: "border-slate-500/30 bg-slate-500/10 text-slate-600 hover:bg-slate-500/15",
 };
 
-export function TestLoginButtons({ nextPath, onError, onTableRequired, tableName = "" }: Props) {
+export function TestLoginButtons({
+  nextPath,
+  onError,
+  onAccountSelected,
+  onTableRequired,
+  tableName = "",
+}: Props) {
   const router = useRouter();
   const { t } = useTranslation("auth");
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
@@ -38,6 +45,7 @@ export function TestLoginButtons({ nextPath, onError, onTableRequired, tableName
       ns: "nav",
       defaultValue: account.label,
     });
+    onAccountSelected?.(account);
     if (account.roleCode === "ROLE_CUSTOMER" && !tableName.trim()) {
       onTableRequired?.();
       return;
@@ -46,7 +54,10 @@ export function TestLoginButtons({ nextPath, onError, onTableRequired, tableName
     onError?.("");
     try {
       const user = await authActions.login(account.email, account.password);
-      tableSessionStorage.setTableName(tableName);
+      // 고객은 사용자가 입력한 테이블명, 그 외 role은 역할 라벨로 자동 설정
+      const effectiveTableName =
+        account.roleCode === "ROLE_CUSTOMER" ? tableName : roleLabel;
+      tableSessionStorage.setTableName(effectiveTableName);
       toast.success(t("testLoginSuccess", { role: roleLabel }));
       router.replace(getPostLoginPath(user, nextPath));
     } catch (e) {

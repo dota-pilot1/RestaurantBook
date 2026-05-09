@@ -34,6 +34,14 @@ export const orderApi = {
     api
       .patch<Order>(`/api/kitchen/orders/${orderId}/cancel`, { cancelMessage })
       .then((r) => r.data),
+  confirmKitchenCancelNotice: (orderId: number) =>
+    api
+      .patch<Order>(`/api/kitchen/orders/${orderId}/cancel-notice/confirm`)
+      .then((r) => r.data),
+  dismissKitchenCancelNotice: (orderId: number) =>
+    api
+      .patch<Order>(`/api/kitchen/orders/${orderId}/cancel-notice/dismiss`)
+      .then((r) => r.data),
   getReadyOperationOrders: () =>
     api.get<Order[]>("/api/operations/orders/ready").then((r) => r.data),
   getOperationOrders: () =>

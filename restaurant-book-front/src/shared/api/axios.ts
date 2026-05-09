@@ -28,6 +28,13 @@ api.interceptors.request.use((config) => {
 
 type Retryable = InternalAxiosRequestConfig & { _retry?: boolean };
 
+class StaleRefreshTokenError extends Error {
+  constructor() {
+    super("refresh token changed while refreshing");
+    this.name = "StaleRefreshTokenError";
+  }
+}
+
 let isRefreshing = false;
 let pendingQueue: Array<{
   resolve: (token: string) => void;
@@ -45,6 +52,7 @@ function flushQueue(error: unknown, token: string | null) {
 async function refreshTokens(): Promise<string> {
   const refreshToken = tokenStorage.getRefresh();
   if (!refreshToken) throw new Error("no refresh token");
+
   const res = await fetch(`${baseURL}/api/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -52,6 +60,11 @@ async function refreshTokens(): Promise<string> {
   });
   if (!res.ok) throw new Error(`refresh failed: ${res.status}`);
   const data: { accessToken: string; refreshToken: string } = await res.json();
+
+  if (tokenStorage.getRefresh() !== refreshToken) {
+    throw new StaleRefreshTokenError();
+  }
+
   tokenStorage.set(data.accessToken, data.refreshToken);
   return data.accessToken;
 }
@@ -87,9 +100,11 @@ api.interceptors.response.use(
       return api(original);
     } catch (e) {
       flushQueue(e, null);
-      tokenStorage.clear();
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("auth:logout"));
+      if (!(e instanceof StaleRefreshTokenError)) {
+        tokenStorage.clear();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("auth:logout"));
+        }
       }
       return Promise.reject(e);
     } finally {

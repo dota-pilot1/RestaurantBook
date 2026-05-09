@@ -36,6 +36,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findTop10ByStatusAndCancelMessageIsNotNullOrderByUpdatedAtDescIdDesc(OrderStatus status);
 
+    List<Order> findTop10ByStatusAndCancelMessageIsNotNullAndKitchenCancelDismissedAtIsNullOrderByUpdatedAtDescIdDesc(
+            OrderStatus status
+    );
+
     List<Order> findTop10ByTableNameAndStatusAndCancelMessageIsNotNullOrderByUpdatedAtDescIdDesc(
             String tableName,
             OrderStatus status

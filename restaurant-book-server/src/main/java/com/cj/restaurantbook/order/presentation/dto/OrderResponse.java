@@ -16,6 +16,8 @@ public record OrderResponse(
         OrderStatus status,
         int totalAmount,
         String cancelMessage,
+        Instant kitchenCancelConfirmedAt,
+        Instant kitchenCancelDismissedAt,
         List<OrderItemResponse> items,
         Instant createdAt,
         Instant updatedAt
@@ -29,6 +31,8 @@ public record OrderResponse(
                 order.getStatus(),
                 order.getTotalAmount(),
                 order.getCancelMessage(),
+                order.getKitchenCancelConfirmedAt(),
+                order.getKitchenCancelDismissedAt(),
                 order.getItems().stream()
                         .sorted(Comparator.comparingInt(com.cj.restaurantbook.order.domain.OrderItem::getDisplayOrder))
                         .map(OrderItemResponse::from)

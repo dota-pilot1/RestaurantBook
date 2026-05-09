@@ -37,8 +37,9 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET:restaurant-book-dev-secret-key-must-be-at-least-32-bytes-long}
-  access-token-expiration-ms: 1800000
-  refresh-token-expiration-ms: 604800000
+  # 키오스크/주방 단말은 매장 안 고정 디바이스라 1년으로 길게 설정
+  access-token-expiration-ms: ${JWT_ACCESS_TOKEN_EXPIRATION_MS:31536000000}
+  refresh-token-expiration-ms: ${JWT_REFRESH_TOKEN_EXPIRATION_MS:31536000000}
   issuer: restaurant-book
 
 auth:

@@ -54,6 +54,8 @@ export type Order = {
   status: OrderStatus;
   totalAmount: number;
   cancelMessage: string | null;
+  kitchenCancelConfirmedAt: string | null;
+  kitchenCancelDismissedAt: string | null;
   items: OrderItem[];
   createdAt: string;
   updatedAt: string;

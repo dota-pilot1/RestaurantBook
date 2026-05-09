@@ -14,7 +14,6 @@ import {
   Settings,
   ShoppingBag,
   Store,
-  Utensils,
 } from "lucide-react";
 import { customerSaleProductApi } from "@/entities/customer-sale-product/api/customerSaleProductApi";
 import type {
@@ -182,6 +181,16 @@ const toCustomerOrderType = (orderType: KioskOrderType): CustomerOrderType =>
   orderType === "dine-in" ? "DINE_IN" : "TAKEOUT";
 
 const toCartKey = (type: SaleProductType, id: number): CartItemKey => `${type}:${id}`;
+
+const getTableBadgeLabel = (tableName: string) => {
+  const normalized = tableName.trim();
+  if (!normalized) return "-";
+
+  const number = normalized.match(/\d+/)?.[0];
+  if (number) return number;
+
+  return normalized.slice(0, 2);
+};
 
 function OrderStatusBadge({ status }: { status: Order["status"] }) {
   return (
@@ -687,8 +696,11 @@ export function KioskHome() {
         <section className="flex min-w-0 flex-col gap-4 overflow-hidden">
           <div className="flex flex-shrink-0 flex-col gap-4 rounded-lg border border-zinc-300 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <Utensils className="h-5 w-5" />
+              <span
+                aria-label={tableName ? `${tableName} 테이블` : "테이블 미설정"}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary text-2xl font-black leading-none text-primary-foreground tabular-nums"
+              >
+                {getTableBadgeLabel(tableName)}
               </span>
               <div>
                 <h1 className="text-2xl font-bold tracking-tight">키오스크 주문</h1>
@@ -1520,6 +1532,8 @@ function AcceptedOrdersSummary({
       <div className="space-y-2">
         {orders.map((order) => {
           const canCancelByCustomer = order.status === "RECEIVED";
+          const shouldShowCancelGuide = order.status === "ACCEPTED";
+          const shouldShowCancelControl = canCancelByCustomer || shouldShowCancelGuide;
           const isCanceling = cancelingOrderId === order.id;
           return (
             <div
@@ -1537,24 +1551,26 @@ function AcceptedOrdersSummary({
                 <OrderHistoryItem key={item.id} item={item} compact />
               ))}
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                if (canCancelByCustomer) {
-                  onCancelOrder(order.id);
-                }
-              }}
-              disabled={!canCancelByCustomer || isCanceling}
-              className={cn(
-                "mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-md border text-sm font-bold transition-colors disabled:cursor-not-allowed",
-                canCancelByCustomer
-                  ? "border-red-500/30 bg-background text-red-600 hover:bg-red-50 disabled:opacity-50"
-                  : "border-border bg-muted/60 text-muted-foreground opacity-80",
-              )}
-            >
-              <XCircle className="h-4 w-4" />
-              {isCanceling ? "취소 중" : canCancelByCustomer ? "주문 취소" : "접수 후 취소는 직원 문의"}
-            </button>
+            {shouldShowCancelControl ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (canCancelByCustomer) {
+                    onCancelOrder(order.id);
+                  }
+                }}
+                disabled={!canCancelByCustomer || isCanceling}
+                className={cn(
+                  "mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-md border text-sm font-bold transition-colors disabled:cursor-not-allowed",
+                  canCancelByCustomer
+                    ? "border-red-500/30 bg-background text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    : "border-border bg-muted/60 text-muted-foreground opacity-80",
+                )}
+              >
+                <XCircle className="h-4 w-4" />
+                {isCanceling ? "취소 중" : canCancelByCustomer ? "주문 취소" : "접수 후 취소는 직원 문의"}
+              </button>
+            ) : null}
           </div>
           );
         })}

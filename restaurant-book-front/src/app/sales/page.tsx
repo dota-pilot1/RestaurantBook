@@ -74,7 +74,7 @@ function SalesContent() {
   const [preset, setPreset] = useState<Preset>("TODAY");
   const [startDate, setStartDate] = useState(initialRange.startDate);
   const [endDate, setEndDate] = useState(initialRange.endDate);
-  const [showMethodSummary, setShowMethodSummary] = useState(false);
+  const [showMethodSummary, setShowMethodSummary] = useState(true);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["sales", startDate, endDate],
@@ -84,7 +84,6 @@ function SalesContent() {
 
   const totalAmount = data?.totalAmount ?? 0;
   const refundAmount = data?.refundAmount ?? 0;
-  const netAmount = totalAmount - refundAmount;
 
   const applyPreset = (nextPreset: Preset) => {
     setPreset(nextPreset);
@@ -170,25 +169,20 @@ function SalesContent() {
           </div>
         ) : null}
 
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <Metric
-            title="총 매출"
-            value={isLoading ? "-" : formatPrice(totalAmount)}
-            description="결제 완료 기준"
-            icon={CreditCard}
-          />
+        <section className="grid gap-3 md:grid-cols-3">
           <Metric
             title="순매출"
-            value={isLoading ? "-" : formatPrice(netAmount)}
-            description="총 매출 - 환불"
-            icon={BarChart3}
-            valueClassName={netAmount < 0 ? "text-red-700" : undefined}
+            value={isLoading ? "-" : formatPrice(totalAmount)}
+            description="환불 제외 결제 기준"
+            icon={CreditCard}
+            variant="blue"
           />
           <Metric
             title="결제 건수"
             value={isLoading ? "-" : `${data?.paymentCount ?? 0}건`}
             description={`환불 ${data?.refundCount ?? 0}건`}
             icon={ReceiptText}
+            variant="violet"
           />
           <Metric
             title="환불"
@@ -196,6 +190,7 @@ function SalesContent() {
             description={`${data?.refundCount ?? 0}건`}
             icon={RotateCcw}
             valueClassName={refundAmount > 0 ? "text-red-700" : undefined}
+            variant="rose"
           />
         </section>
 
@@ -373,24 +368,46 @@ function DateInput({
   );
 }
 
+const metricVariants = {
+  blue: {
+    card: "bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900",
+    icon: "text-blue-500 dark:text-blue-400",
+  },
+  emerald: {
+    card: "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-900",
+    icon: "text-emerald-500 dark:text-emerald-400",
+  },
+  violet: {
+    card: "bg-violet-50 border-violet-200 dark:bg-violet-950/30 dark:border-violet-900",
+    icon: "text-violet-500 dark:text-violet-400",
+  },
+  rose: {
+    card: "bg-rose-50 border-rose-200 dark:bg-rose-950/30 dark:border-rose-900",
+    icon: "text-rose-500 dark:text-rose-400",
+  },
+};
+
 function Metric({
   title,
   value,
   description,
   icon: Icon,
   valueClassName,
+  variant = "blue",
 }: {
   title: string;
   value: string;
   description?: string;
   icon: React.ComponentType<{ className?: string }>;
   valueClassName?: string;
+  variant?: keyof typeof metricVariants;
 }) {
+  const v = metricVariants[variant];
   return (
-    <div className="rounded-md border border-border bg-background p-4">
+    <div className={`rounded-md border p-4 ${v.card}`}>
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-medium text-muted-foreground">{title}</span>
-        <Icon className="h-4 w-4 text-muted-foreground" />
+        <Icon className={`h-4 w-4 ${v.icon}`} />
       </div>
       <strong className={`mt-3 block text-2xl font-bold tracking-tight tabular-nums ${valueClassName ?? ""}`}>
         {value}

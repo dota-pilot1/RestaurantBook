@@ -1,16 +1,17 @@
 package com.cj.restaurantbook.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -26,17 +27,15 @@ public class AppWebSocketHandler extends TextWebSocketHandler {
     private static final String TOPIC_STAFF_CALLS = "staff-calls:operations";
     private static final String TOPIC_CUSTOMER_CALLS_PREFIX = "customer:calls/";
 
-    private final ObjectMapper objectMapper;
+    // Jackson 2 / 3 빈 충돌 회피를 위해 직접 인스턴스 보유 (DI 제거)
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final ConcurrentHashMap<String, CopyOnWriteArrayList<WebSocketSession>> topicSessions =
             new ConcurrentHashMap<>();
 
-    public AppWebSocketHandler(@Lazy ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
-
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
+        subscribeHandshakeTopics(session);
         log.debug("WS connected: sessionId={} role={}", session.getId(), session.getAttributes().get("role"));
     }
 
@@ -99,6 +98,22 @@ public class AppWebSocketHandler extends TextWebSocketHandler {
         if (!sessions.contains(session)) {
             sessions.add(session);
         }
+    }
+
+    private void subscribeHandshakeTopics(WebSocketSession session) {
+        if (session.getUri() == null || session.getUri().getQuery() == null) {
+            return;
+        }
+        List<String> topics = UriComponentsBuilder.fromUri(session.getUri())
+                .build()
+                .getQueryParams()
+                .get("topic");
+        if (topics == null || topics.isEmpty()) {
+            return;
+        }
+        topics.stream()
+                .map(topic -> URLDecoder.decode(topic, StandardCharsets.UTF_8))
+                .forEach(topic -> handleSubscribe(session, topic));
     }
 
     private void handleUnsubscribe(WebSocketSession session, String topic) {

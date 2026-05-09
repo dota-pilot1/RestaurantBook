@@ -15,6 +15,7 @@ class AppWsManager {
   private ws: WebSocket | null = null;
   private subscriptions = new Map<string, Set<AppWsListener>>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private connectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private reconnectAttempts = 0;
   private refCount = 0;
@@ -24,7 +25,7 @@ class AppWsManager {
   acquire() {
     this.refCount++;
     if (this.refCount === 1) {
-      this.connect();
+      this.scheduleConnect();
     }
   }
 
@@ -37,12 +38,21 @@ class AppWsManager {
 
   subscribe(topic: string, listener: AppWsListener) {
     let listeners = this.subscriptions.get(topic);
+    const isNewTopic = !listeners;
     if (!listeners) {
       listeners = new Set();
       this.subscriptions.set(topic, listeners);
-      this.send({ type: "SUBSCRIBE", topic, data: null });
     }
     listeners.add(listener);
+
+    if (this.needsReconnectForAuth() || (isNewTopic && this.isSocketActive())) {
+      this.ws?.close();
+      return;
+    }
+
+    if (isNewTopic) {
+      this.send({ type: "SUBSCRIBE", topic, data: null });
+    }
   }
 
   unsubscribe(topic: string, listener: AppWsListener) {
@@ -53,12 +63,16 @@ class AppWsManager {
     listeners.delete(listener);
     if (listeners.size === 0) {
       this.subscriptions.delete(topic);
+      if (this.needsReconnectForAuth() || this.isSocketActive()) {
+        this.ws?.close();
+        return;
+      }
       this.send({ type: "UNSUBSCRIBE", topic, data: null });
     }
   }
 
   refreshToken() {
-    const nextToken = tokenStorage.getAccess();
+    const nextToken = this.shouldAuthenticate() ? tokenStorage.getAccess() : null;
     if (nextToken !== this.currentToken) {
       this.ws?.close();
     }
@@ -72,7 +86,7 @@ class AppWsManager {
       return;
     }
 
-    this.currentToken = tokenStorage.getAccess();
+    this.currentToken = this.shouldAuthenticate() ? tokenStorage.getAccess() : null;
     let opened = false;
     try {
       this.ws = new WebSocket(this.buildUrl(this.currentToken));
@@ -131,6 +145,9 @@ class AppWsManager {
     if (token) {
       httpUrl.searchParams.set("token", token);
     }
+    this.subscriptions.forEach((_, topic) => {
+      httpUrl.searchParams.append("topic", topic);
+    });
     const protocol = httpUrl.protocol === "https:" ? "wss:" : "ws:";
     return `${protocol}//${httpUrl.host}${httpUrl.pathname}${httpUrl.search}`;
   }
@@ -140,6 +157,32 @@ class AppWsManager {
       return;
     }
     this.ws.send(JSON.stringify(message));
+  }
+
+  private shouldAuthenticate() {
+    return [...this.subscriptions.keys()].some((topic) => requiresAuthenticatedTopic(topic));
+  }
+
+  private needsReconnectForAuth() {
+    if (!this.ws || this.ws.readyState === WebSocket.CLOSING || this.ws.readyState === WebSocket.CLOSED) {
+      return false;
+    }
+    const nextToken = this.shouldAuthenticate() ? tokenStorage.getAccess() : null;
+    return nextToken !== this.currentToken;
+  }
+
+  private isSocketActive() {
+    return this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING;
+  }
+
+  private scheduleConnect() {
+    if (this.connectTimer) {
+      return;
+    }
+    this.connectTimer = setTimeout(() => {
+      this.connectTimer = null;
+      this.connect();
+    }, 0);
   }
 
   private scheduleReconnect() {
@@ -179,6 +222,9 @@ class AppWsManager {
           accessToken: string;
           refreshToken: string;
         };
+        if (tokenStorage.getRefresh() !== refreshToken) {
+          return false;
+        }
         tokenStorage.set(data.accessToken, data.refreshToken);
         return true;
       } catch {
@@ -209,6 +255,10 @@ class AppWsManager {
   }
 
   private teardown() {
+    if (this.connectTimer) {
+      clearTimeout(this.connectTimer);
+      this.connectTimer = null;
+    }
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -238,9 +288,9 @@ export function useAppWebSocketTopic(
     if (!enabled || !topic) {
       return;
     }
-    appWsManager.acquire();
     const handler: AppWsListener = (message) => listenerRef.current(message);
     appWsManager.subscribe(topic, handler);
+    appWsManager.acquire();
     return () => {
       appWsManager.unsubscribe(topic, handler);
       appWsManager.release();
@@ -264,4 +314,8 @@ export function useAppWebSocketTopic(
       window.removeEventListener("auth:token-changed", onTokenChanged);
     };
   }, []);
+}
+
+function requiresAuthenticatedTopic(topic: string) {
+  return topic === "orders:operations" || topic === "staff-calls:operations";
 }

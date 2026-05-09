@@ -66,7 +66,7 @@ function ManagerDashboardContent() {
   const inProgress = receivedAndAccepted + (dashboard?.cookingCount ?? 0);
   const readyCount = dashboard?.readyCount ?? 0;
   const paymentCount = todaySales?.paymentCount ?? 0;
-  const netAmount = (todaySales?.totalAmount ?? 0) - (todaySales?.refundAmount ?? 0);
+  const netAmount = todaySales?.totalAmount ?? 0;
   const pendingStaffCallCount = dashboard?.pendingStaffCallCount ?? 0;
 
   const flowStages = [
@@ -77,9 +77,9 @@ function ManagerDashboardContent() {
   ];
 
   return (
-    <main className="min-h-[calc(100vh-3.5rem)] bg-muted/30 px-4 py-5">
+    <main className="min-h-[calc(100vh-3.5rem)] bg-muted px-4 py-5">
       <div className="mx-auto max-w-7xl space-y-5">
-        <section className="flex flex-col gap-4 rounded-lg border border-border bg-background p-5 lg:flex-row lg:items-center lg:justify-between">
+        <section className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-start gap-4">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <LayoutDashboard className="h-6 w-6" />
@@ -94,7 +94,7 @@ function ManagerDashboardContent() {
           <div className="flex flex-wrap gap-2">
             <QuickButton href="/staff" label="직원 보드" icon={ClipboardList} />
             <QuickButton href="/kitchen-board" label="주방 현황" icon={ChefHat} />
-            <QuickButton href="/sales" label="매출 통계" icon={BarChart3} primary />
+            <QuickButton href="/sales" label="매출 통계" icon={BarChart3} />
           </div>
         </section>
 
@@ -106,13 +106,6 @@ function ManagerDashboardContent() {
             icon={ShoppingBag}
           />
           <MetricCard
-            label="오늘 매출"
-            value={formatPrice(todaySales?.totalAmount ?? 0)}
-            delta={`결제 ${paymentCount}건`}
-            icon={CreditCard}
-            href="/sales"
-          />
-          <MetricCard
             label="결제 대기"
             value={`${readyCount}건`}
             delta="조리 완료"
@@ -122,8 +115,8 @@ function ManagerDashboardContent() {
           <MetricCard
             label="오늘 순매출"
             value={formatPrice(netAmount)}
-            delta={`환불 ${todaySales?.refundCount ?? 0}건`}
-            icon={BarChart3}
+            delta={`결제 ${paymentCount}건 · 환불 ${todaySales?.refundCount ?? 0}건`}
+            icon={CreditCard}
             href="/sales"
             tone={netAmount < 0 ? "alert" : undefined}
           />
@@ -138,8 +131,8 @@ function ManagerDashboardContent() {
         </section>
 
         <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-lg border border-border bg-background">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="rounded-lg border border-border bg-card shadow-sm">
+            <div className="flex items-center justify-between border-b border-border bg-muted/40 px-4 py-3">
               <div className="flex items-center gap-2">
                 <ClipboardList className="h-4 w-4 text-muted-foreground" />
                 <h2 className="text-sm font-semibold">실시간 주문 흐름</h2>
@@ -148,7 +141,7 @@ function ManagerDashboardContent() {
             </div>
             <div className="grid gap-3 p-4 sm:grid-cols-4">
               {flowStages.map((stage) => (
-                <div key={stage.label} className="rounded-md border border-border p-4">
+                <div key={stage.label} className="rounded-md border border-border bg-background/75 p-4">
                   <div className="mb-4 flex items-center justify-between">
                     <span className={`h-2.5 w-2.5 rounded-full ${stage.tone}`} />
                     <span className="text-xs text-muted-foreground">주문</span>
@@ -160,8 +153,8 @@ function ManagerDashboardContent() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-border bg-background">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="rounded-lg border border-border bg-card shadow-sm">
+            <div className="flex items-center justify-between border-b border-border bg-muted/40 px-4 py-3">
               <div className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
                 <h2 className="text-sm font-semibold">오늘 결제수단</h2>
@@ -174,7 +167,7 @@ function ManagerDashboardContent() {
               {(todaySales?.methodSummaries ?? []).map((summary) => {
                 const Icon = methodIcon[summary.method];
                 return (
-                  <div key={summary.method} className="flex items-center justify-between rounded-md border border-border px-3 py-3">
+                  <div key={summary.method} className="flex items-center justify-between rounded-md border border-border bg-background/75 px-3 py-3">
                     <div className="flex items-center gap-3">
                       <span className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
                         <Icon className="h-4 w-4" />
@@ -225,8 +218,8 @@ function MetricCard({
 }) {
   const containerClass =
     tone === "alert"
-      ? "rounded-lg border border-rose-300 bg-rose-50 p-4 transition-colors hover:bg-rose-100"
-      : "rounded-lg border border-border bg-background p-4 transition-colors hover:bg-accent";
+      ? "rounded-lg border border-rose-300 bg-rose-50 p-4 shadow-sm transition-colors hover:bg-rose-100 dark:border-rose-900/70 dark:bg-rose-950/30 dark:hover:bg-rose-950/45"
+      : "rounded-lg border border-border bg-card p-4 shadow-sm transition-colors hover:bg-accent";
   const iconClass = tone === "alert" ? "h-4 w-4 text-rose-700" : "h-4 w-4 text-muted-foreground";
   const deltaClass =
     tone === "alert"
@@ -260,21 +253,15 @@ function QuickButton({
   href,
   label,
   icon: Icon,
-  primary = false,
 }: {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  primary?: boolean;
 }) {
   return (
     <Link
       href={href}
-      className={`inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition-colors ${
-        primary
-          ? "bg-primary text-primary-foreground hover:opacity-90"
-          : "border border-border bg-background hover:bg-accent"
-      }`}
+      className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-background/80 px-3 text-sm font-medium transition-colors hover:bg-accent"
     >
       <Icon className="h-4 w-4" />
       {label}
@@ -294,7 +281,7 @@ function QuickLink({
   return (
     <Link
       href={href}
-      className="flex h-14 items-center justify-between rounded-lg border border-border bg-background px-4 text-sm font-semibold transition-colors hover:bg-accent"
+      className="flex h-14 items-center justify-between rounded-lg border border-border bg-card px-4 text-sm font-semibold shadow-sm transition-colors hover:bg-accent"
     >
       <span className="flex items-center gap-2">
         <Icon className="h-4 w-4 text-muted-foreground" />

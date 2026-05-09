@@ -14,6 +14,7 @@ import {
   PhoneCall,
   ReceiptText,
   Store,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import { orderApi } from "@/entities/order/api/orderApi";
@@ -156,7 +157,7 @@ const playStaffCallAlert = () => {
 
 export function StaffReadyOrders() {
   return (
-    <RequireRole roles={["ROLE_ADMIN", "ROLE_STAFF"]}>
+    <RequireRole roles={["ROLE_ADMIN", "ROLE_MANAGER", "ROLE_STAFF"]}>
       <StaffOrderBoardContent />
     </RequireRole>
   );
@@ -167,6 +168,7 @@ function StaffOrderBoardContent() {
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
   const [cancelMessage, setCancelMessage] = useState("");
   const [cancelNoticeDialogOpen, setCancelNoticeDialogOpen] = useState(false);
+  const [confirmedCanceledOrderIds, setConfirmedCanceledOrderIds] = useState<Set<number>>(() => new Set());
   const [staffCallDialogOpen, setStaffCallDialogOpen] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState<Order | null>(null);
   const [refundTarget, setRefundTarget] = useState<Order | null>(null);
@@ -203,7 +205,7 @@ function StaffOrderBoardContent() {
   } = useQuery({
     queryKey: ["operation-orders"],
     queryFn: orderApi.getOperationOrders,
-    refetchInterval: 30000,
+    refetchInterval: 20000,
     refetchOnWindowFocus: true,
   });
 
@@ -212,7 +214,7 @@ function StaffOrderBoardContent() {
   } = useQuery({
     queryKey: ["operation-canceled-orders"],
     queryFn: orderApi.getCanceledOperationOrders,
-    refetchInterval: 30000,
+    refetchInterval: 20000,
     refetchOnWindowFocus: true,
   });
 
@@ -221,7 +223,7 @@ function StaffOrderBoardContent() {
   } = useQuery({
     queryKey: ["operations-staff-calls"],
     queryFn: staffCallApi.getPendingOperationsCalls,
-    refetchInterval: 3000,
+    refetchInterval: 20000,
     refetchOnWindowFocus: true,
   });
 
@@ -234,6 +236,24 @@ function StaffOrderBoardContent() {
     () => canceledOrders.filter((order) => order.status === "CANCELED" && order.cancelMessage),
     [canceledOrders],
   );
+
+  const pendingCanceledOrders = useMemo(
+    () => visibleCanceledOrders.filter((order) => !confirmedCanceledOrderIds.has(order.id)),
+    [confirmedCanceledOrderIds, visibleCanceledOrders],
+  );
+
+  const confirmedCanceledOrders = useMemo(
+    () => visibleCanceledOrders.filter((order) => confirmedCanceledOrderIds.has(order.id)),
+    [confirmedCanceledOrderIds, visibleCanceledOrders],
+  );
+
+  useEffect(() => {
+    const visibleIds = new Set(visibleCanceledOrders.map((order) => order.id));
+    setConfirmedCanceledOrderIds((current) => {
+      const next = new Set([...current].filter((orderId) => visibleIds.has(orderId)));
+      return next.size === current.size ? current : next;
+    });
+  }, [visibleCanceledOrders]);
 
   const counts = useMemo(
     () =>
@@ -276,12 +296,21 @@ function StaffOrderBoardContent() {
 
   const acknowledgeCanceledMutation = useMutation({
     mutationFn: orderApi.acknowledgeOperationCanceledOrders,
-    onSuccess: () => {
+    onSuccess: (_data, tableName) => {
+      setConfirmedCanceledOrderIds((current) => {
+        const next = new Set(current);
+        visibleCanceledOrders.forEach((order) => {
+          if (order.tableName === tableName) {
+            next.delete(order.id);
+          }
+        });
+        return next;
+      });
       queryClient.invalidateQueries({ queryKey: ["operation-canceled-orders"] });
       queryClient.invalidateQueries({ queryKey: ["kitchen-canceled-orders"] });
-      toast.success("취소 안내를 확인 처리했습니다.");
+      toast.success("취소 안내를 정리했습니다.");
     },
-    onError: (error) => toastError(error, "취소 안내 확인 처리를 하지 못했습니다."),
+    onError: (error) => toastError(error, "취소 안내를 정리하지 못했습니다."),
   });
 
   const acknowledgeStaffCallMutation = useMutation({
@@ -466,53 +495,104 @@ function StaffOrderBoardContent() {
         </section>
       </div>
 
-      <NoticeDialog
-        open={cancelNoticeDialogOpen}
-        title="취소 안내"
-        tone="error"
-        confirmText="닫기"
-        onConfirm={() => setCancelNoticeDialogOpen(false)}
-      >
-        <div className="space-y-3">
-          <p className="text-sm font-semibold text-foreground">
-            고객에게 취소 사유를 설명한 뒤 테이블별로 확인 처리합니다.
-          </p>
-          <div className="max-h-72 space-y-2 overflow-y-auto">
-            {visibleCanceledOrders.map((order) => {
-              const shortOrderNo = order.orderNo.split("-").at(-1) ?? order.orderNo;
-              return (
-                <div
-                  key={order.id}
-                  className="rounded-md border border-red-200 bg-red-50 px-3 py-2"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-red-800">
-                        {order.tableName ?? "테이블 미지정"} · #{shortOrderNo}
-                      </p>
-                      <p className="mt-1 text-xs font-semibold text-red-700">
-                        {formatTime(order.updatedAt)}
-                      </p>
+      {cancelNoticeDialogOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-notice-dialog-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+        >
+          <div className="w-full max-w-4xl overflow-hidden rounded-lg border border-border bg-background shadow-xl">
+            <div className="flex items-center gap-3 bg-red-50 px-5 py-4 text-red-700">
+              <XCircle className="h-6 w-6 shrink-0 text-red-600" />
+              <h2 id="cancel-notice-dialog-title" className="text-lg font-black tracking-tight">
+                취소 안내
+              </h2>
+            </div>
+            <div className="p-5">
+              <p className="text-sm font-semibold text-foreground">
+                고객에게 취소 사유를 설명한 뒤 확인 완료로 옮기고, 정리할 때 목록에서 제거합니다.
+              </p>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <section className="min-h-72 rounded-md border border-red-200 bg-red-50/55 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-black text-red-900">확인 필요</h3>
+                      <p className="mt-0.5 text-xs font-semibold text-red-700">고객 설명 전</p>
                     </div>
-                    <button
-                      type="button"
-                      disabled={!order.tableName || acknowledgeCanceledMutation.isPending}
-                      onClick={() => {
-                        if (!order.tableName) return;
-                        acknowledgeCanceledMutation.mutate(order.tableName);
-                      }}
-                      className="shrink-0 rounded-md bg-red-600 px-3 py-2 text-xs font-bold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      설명 완료
-                    </button>
+                    <span className="rounded-md border border-red-200 bg-background px-2 py-1 text-xs font-bold text-red-800">
+                      {pendingCanceledOrders.length}건
+                    </span>
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-red-800">{order.cancelMessage}</p>
-                </div>
-              );
-            })}
+                  <div className="max-h-[52vh] space-y-2 overflow-y-auto pr-1">
+                    {pendingCanceledOrders.length === 0 ? (
+                      <CancelNoticeEmpty label="확인할 취소 없음" />
+                    ) : null}
+                    {pendingCanceledOrders.map((order) => (
+                      <CanceledNoticeCard
+                        key={order.id}
+                        order={order}
+                        actionLabel="확인 완료"
+                        actionIcon={CheckCircle2}
+                        actionClassName="bg-red-600 text-white hover:bg-red-700"
+                        onAction={() => {
+                          setConfirmedCanceledOrderIds((current) => new Set(current).add(order.id));
+                        }}
+                      />
+                    ))}
+                  </div>
+                </section>
+
+                <section className="min-h-72 rounded-md border border-zinc-200 bg-zinc-50/70 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-black text-zinc-900">확인 완료</h3>
+                      <p className="mt-0.5 text-xs font-semibold text-muted-foreground">정리 대기</p>
+                    </div>
+                    <span className="rounded-md border border-zinc-200 bg-background px-2 py-1 text-xs font-bold text-zinc-800">
+                      {confirmedCanceledOrders.length}건
+                    </span>
+                  </div>
+                  <div className="max-h-[52vh] space-y-2 overflow-y-auto pr-1">
+                    {confirmedCanceledOrders.length === 0 ? (
+                      <CancelNoticeEmpty label="정리 대기 없음" />
+                    ) : null}
+                    {confirmedCanceledOrders.map((order) => (
+                      <CanceledNoticeCard
+                        key={order.id}
+                        order={order}
+                        actionLabel={
+                          acknowledgeCanceledMutation.isPending &&
+                          acknowledgeCanceledMutation.variables === order.tableName
+                            ? "정리 중"
+                            : "정리"
+                        }
+                        actionIcon={Trash2}
+                        actionClassName="border border-zinc-300 bg-background text-zinc-800 hover:bg-zinc-100"
+                        disabled={!order.tableName || acknowledgeCanceledMutation.isPending}
+                        onAction={() => {
+                          if (!order.tableName) return;
+                          acknowledgeCanceledMutation.mutate(order.tableName);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </section>
+              </div>
+            </div>
+            <div className="border-t border-border bg-muted/20 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setCancelNoticeDialogOpen(false)}
+                className="flex h-11 w-full items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                닫기
+              </button>
+            </div>
           </div>
         </div>
-      </NoticeDialog>
+      ) : null}
 
       <NoticeDialog
         open={staffCallDialogOpen}
@@ -689,6 +769,63 @@ function StaffOrderBoardContent() {
         ) : null}
       </ConfirmDialog>
     </main>
+  );
+}
+
+function CanceledNoticeCard({
+  order,
+  actionLabel,
+  actionIcon: ActionIcon,
+  actionClassName,
+  disabled = false,
+  onAction,
+}: {
+  order: Order;
+  actionLabel: string;
+  actionIcon: React.ComponentType<{ className?: string }>;
+  actionClassName: string;
+  disabled?: boolean;
+  onAction: () => void;
+}) {
+  const shortOrderNo = order.orderNo.split("-").at(-1) ?? order.orderNo;
+
+  return (
+    <div className="rounded-md border border-red-200 bg-background px-3 py-2 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-red-800">
+            {order.tableName ?? "테이블 미지정"} · #{shortOrderNo}
+          </p>
+          <p className="mt-1 text-xs font-semibold text-red-700">
+            {formatTime(order.updatedAt)}
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onAction}
+          className={cn(
+            "inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+            actionClassName,
+          )}
+        >
+          <ActionIcon className="h-3.5 w-3.5" />
+          {actionLabel}
+        </button>
+      </div>
+      <p className="mt-2 text-sm font-semibold text-red-800">{order.cancelMessage}</p>
+    </div>
+  );
+}
+
+function CancelNoticeEmpty({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-40 items-center justify-center rounded-md border border-dashed border-border bg-background/70 p-4 text-center">
+      <div>
+        <ReceiptText className="mx-auto h-5 w-5 text-muted-foreground" />
+        <p className="mt-2 text-sm font-semibold text-muted-foreground">{label}</p>
+      </div>
+    </div>
   );
 }
 

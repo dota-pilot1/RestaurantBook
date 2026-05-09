@@ -24,6 +24,7 @@ public class OrderSchemaMigrator implements ApplicationRunner {
 
         syncOrderStatusCheckConstraint();
         addCancelMessageColumn();
+        addKitchenCancelNoticeColumns();
     }
 
     private void syncOrderStatusCheckConstraint() {
@@ -40,6 +41,17 @@ public class OrderSchemaMigrator implements ApplicationRunner {
         if (!columnExists("orders", "cancel_message")) {
             jdbcTemplate.execute("alter table orders add column cancel_message varchar(500)");
             log.info("Added orders.cancel_message column");
+        }
+    }
+
+    private void addKitchenCancelNoticeColumns() {
+        if (!columnExists("orders", "kitchen_cancel_confirmed_at")) {
+            jdbcTemplate.execute("alter table orders add column kitchen_cancel_confirmed_at timestamp with time zone");
+            log.info("Added orders.kitchen_cancel_confirmed_at column");
+        }
+        if (!columnExists("orders", "kitchen_cancel_dismissed_at")) {
+            jdbcTemplate.execute("alter table orders add column kitchen_cancel_dismissed_at timestamp with time zone");
+            log.info("Added orders.kitchen_cancel_dismissed_at column");
         }
     }
 

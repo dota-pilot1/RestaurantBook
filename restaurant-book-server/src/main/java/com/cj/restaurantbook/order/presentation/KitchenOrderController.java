@@ -20,7 +20,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/kitchen/orders")
-@PreAuthorize("hasAnyRole('ADMIN', 'KITCHEN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'KITCHEN')")
 @Tag(name = "Kitchen Orders", description = "주방 주문 상태 관리")
 public class KitchenOrderController {
 
@@ -63,5 +63,17 @@ public class KitchenOrderController {
             @Valid @RequestBody OperationCancelOrderRequest request
     ) {
         return kitchenOrderService.cancel(orderId, request.cancelMessage());
+    }
+
+    @PatchMapping("/{orderId}/cancel-notice/confirm")
+    @Operation(summary = "주방 취소 알림 확인 완료")
+    public OrderResponse confirmCancelNotice(@PathVariable Long orderId) {
+        return kitchenOrderService.confirmCancelNotice(orderId);
+    }
+
+    @PatchMapping("/{orderId}/cancel-notice/dismiss")
+    @Operation(summary = "주방 취소 알림 정리")
+    public OrderResponse dismissCancelNotice(@PathVariable Long orderId) {
+        return kitchenOrderService.dismissCancelNotice(orderId);
     }
 }

@@ -332,6 +332,13 @@
 
     body {
         @apply bg-background text-foreground;
+        /* 태블릿 키오스크: 좌우 스와이프(뒤로/앞으로) 제스처 차단 */
+        overscroll-behavior-x: none;
+        touch-action: pan-y;
+    }
+
+    html {
+        overscroll-behavior-x: none;
     }
 }
 

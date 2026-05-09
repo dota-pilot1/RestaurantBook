@@ -14,6 +14,7 @@ import {
   ReceiptText,
   RotateCcw,
   Store,
+  Trash2,
   Utensils,
   XCircle,
 } from "lucide-react";
@@ -28,11 +29,19 @@ import {
   subscribeKitchenHeaderNavVisibility,
 } from "@/shared/lib/kitchenHeaderNavVisibility";
 import { cn } from "@/shared/lib/utils";
-import { NoticeDialog } from "@/shared/ui/NoticeDialog";
 import { OperationalHeaderSettings } from "@/shared/ui/OperationalHeaderSettings";
 import { RequireRole } from "@/widgets/guards/RequireRole";
 
 type KitchenStatus = Extract<OrderStatus, "RECEIVED" | "ACCEPTED" | "COOKING" | "READY">;
+
+type CanceledNoticeItem = {
+  id: number;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+  lineTotal: number;
+  components: Order["items"][number]["components"];
+};
 
 type CanceledNotice = {
   key: string;
@@ -41,6 +50,11 @@ type CanceledNotice = {
   tableName: string | null;
   message: string;
   receivedAt: Date;
+  items: CanceledNoticeItem[];
+  totalAmount: number | null;
+  totalQuantity: number | null;
+  kitchenCancelConfirmedAt: string | null;
+  kitchenCancelDismissedAt: string | null;
 };
 
 const statusColumns: Array<{
@@ -106,6 +120,30 @@ const formatTime = (value: string) =>
     minute: "2-digit",
   });
 
+const getOrderQuantity = (order: Order) =>
+  order.items.reduce((sum, item) => sum + item.quantity, 0);
+
+const toCanceledNoticeItems = (order: Order): CanceledNoticeItem[] =>
+  order.items.map((item) => ({
+    id: item.id,
+    name: item.name,
+    unitPrice: item.unitPrice,
+    quantity: item.quantity,
+    lineTotal: item.lineTotal,
+    components: item.components,
+  }));
+
+const mergeCanceledNoticeOrder = (notice: CanceledNotice, order: Order): CanceledNotice => ({
+  ...notice,
+  orderNo: notice.orderNo ?? order.orderNo,
+  tableName: notice.tableName ?? order.tableName,
+  items: notice.items.length > 0 ? notice.items : toCanceledNoticeItems(order),
+  totalAmount: notice.totalAmount ?? order.totalAmount,
+  totalQuantity: notice.totalQuantity ?? getOrderQuantity(order),
+  kitchenCancelConfirmedAt: order.kitchenCancelConfirmedAt,
+  kitchenCancelDismissedAt: order.kitchenCancelDismissedAt,
+});
+
 const isKitchenStatus = (status: OrderStatus): status is KitchenStatus =>
   status === "RECEIVED" || status === "ACCEPTED" || status === "COOKING" || status === "READY";
 
@@ -117,7 +155,7 @@ const kitchenHeaderNavStore = {
 
 export function KitchenOrderBoard() {
   return (
-    <RequireRole roles={["ROLE_ADMIN", "ROLE_KITCHEN"]}>
+    <RequireRole roles={["ROLE_ADMIN", "ROLE_MANAGER", "ROLE_KITCHEN"]}>
       <KitchenOrderBoardContent />
     </RequireRole>
   );
@@ -130,7 +168,6 @@ function KitchenOrderBoardContent() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [movingOrderId, setMovingOrderId] = useState<number | null>(null);
   const [canceledNotices, setCanceledNotices] = useState<CanceledNotice[]>([]);
-  const [dismissedCanceledOrderIds, setDismissedCanceledOrderIds] = useState<Set<number>>(() => new Set());
   const [cancelNoticeDialogOpen, setCancelNoticeDialogOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<(Order & { status: KitchenStatus }) | null>(null);
   const [cancelMessage, setCancelMessage] = useState("");
@@ -140,16 +177,26 @@ function KitchenOrderBoardContent() {
     if (payload.reason !== "CANCELED") {
       return;
     }
+    const cachedOrders = queryClient.getQueryData<Order[]>(["kitchen-orders"]) ?? [];
+    const cachedOrder =
+      payload.orderId == null
+        ? null
+        : cachedOrders.find((order) => order.id === payload.orderId) ?? null;
     const notice: CanceledNotice = {
       key: `${payload.orderId ?? "unknown"}-${Date.now()}`,
       orderId: payload.orderId ?? null,
-      orderNo: null,
-      tableName: payload.tableName ?? null,
-      message: payload.cancelMessage?.trim() || "고객이 주문을 취소했습니다.",
+      orderNo: cachedOrder?.orderNo ?? null,
+      tableName: payload.tableName ?? cachedOrder?.tableName ?? null,
+      message: payload.cancelMessage?.trim() || "주문이 취소되었습니다.",
       receivedAt: new Date(),
+      items: cachedOrder ? toCanceledNoticeItems(cachedOrder) : [],
+      totalAmount: cachedOrder?.totalAmount ?? null,
+      totalQuantity: cachedOrder ? getOrderQuantity(cachedOrder) : null,
+      kitchenCancelConfirmedAt: null,
+      kitchenCancelDismissedAt: null,
     };
     setCanceledNotices((current) => [notice, ...current].slice(0, 10));
-    toast.error(`${payload.tableName ?? "테이블 미지정"} 주문이 고객에 의해 취소되었습니다.`);
+    toast.error(`${payload.tableName ?? cachedOrder?.tableName ?? "테이블 미지정"} 주문이 취소되었습니다.`);
   });
 
   useEffect(() => {
@@ -176,7 +223,7 @@ function KitchenOrderBoardContent() {
   } = useQuery({
     queryKey: ["kitchen-orders"],
     queryFn: orderApi.getKitchenOrders,
-    refetchInterval: 30000,
+    refetchInterval: 20000,
     refetchOnWindowFocus: true,
   });
 
@@ -185,7 +232,7 @@ function KitchenOrderBoardContent() {
   } = useQuery({
     queryKey: ["kitchen-canceled-orders"],
     queryFn: orderApi.getCanceledKitchenOrders,
-    refetchInterval: 30000,
+    refetchInterval: 20000,
     refetchOnWindowFocus: true,
   });
 
@@ -196,18 +243,24 @@ function KitchenOrderBoardContent() {
 
   const visibleCanceledNotices = useMemo(() => {
     const seen = new Set<number>();
-    const fromEvents = canceledNotices.filter((notice) => {
-      if (notice.orderId == null) {
+    const canceledOrderById = new Map(canceledOrders.map((order) => [order.id, order]));
+    const fromEvents = canceledNotices
+      .map((notice) => {
+        const syncedOrder = notice.orderId == null ? null : canceledOrderById.get(notice.orderId);
+        return syncedOrder ? mergeCanceledNoticeOrder(notice, syncedOrder) : notice;
+      })
+      .filter((notice) => {
+        if (notice.orderId == null) {
+          return true;
+        }
+        if (notice.kitchenCancelDismissedAt) {
+          return false;
+        }
+        seen.add(notice.orderId);
         return true;
-      }
-      if (dismissedCanceledOrderIds.has(notice.orderId)) {
-        return false;
-      }
-      seen.add(notice.orderId);
-      return true;
-    });
+      });
     const fromOrders = canceledOrders
-      .filter((order) => order.status === "CANCELED" && order.cancelMessage && !dismissedCanceledOrderIds.has(order.id))
+      .filter((order) => order.status === "CANCELED" && order.cancelMessage && !order.kitchenCancelDismissedAt)
       .filter((order) => {
         if (seen.has(order.id)) {
           return false;
@@ -222,9 +275,24 @@ function KitchenOrderBoardContent() {
         tableName: order.tableName,
         message: order.cancelMessage ?? "주문이 취소되었습니다.",
         receivedAt: new Date(order.updatedAt),
+        items: toCanceledNoticeItems(order),
+        totalAmount: order.totalAmount,
+        totalQuantity: getOrderQuantity(order),
+        kitchenCancelConfirmedAt: order.kitchenCancelConfirmedAt,
+        kitchenCancelDismissedAt: order.kitchenCancelDismissedAt,
       }));
     return [...fromEvents, ...fromOrders].slice(0, 10);
-  }, [canceledNotices, canceledOrders, dismissedCanceledOrderIds]);
+  }, [canceledNotices, canceledOrders]);
+
+  const pendingCanceledNotices = useMemo(
+    () => visibleCanceledNotices.filter((notice) => !notice.kitchenCancelConfirmedAt),
+    [visibleCanceledNotices],
+  );
+
+  const confirmedCanceledNotices = useMemo(
+    () => visibleCanceledNotices.filter((notice) => notice.kitchenCancelConfirmedAt && !notice.kitchenCancelDismissedAt),
+    [visibleCanceledNotices],
+  );
 
   const statusMutation = useMutation({
     mutationFn: async ({ orderId, action }: { orderId: number; action: "accept" | "start" | "ready" }) => {
@@ -259,6 +327,33 @@ function KitchenOrderBoardContent() {
     },
     onError: (error) => {
       toastError(error, "주문을 취소하지 못했습니다.");
+    },
+  });
+
+  const confirmCancelNoticeMutation = useMutation({
+    mutationFn: orderApi.confirmKitchenCancelNotice,
+    onSuccess: (order) => {
+      queryClient.setQueryData<Order[]>(["kitchen-canceled-orders"], (current) =>
+        current?.map((item) => (item.id === order.id ? order : item)) ?? current,
+      );
+      queryClient.invalidateQueries({ queryKey: ["kitchen-canceled-orders"] });
+    },
+    onError: (error) => {
+      toastError(error, "취소 알림을 확인 완료로 옮기지 못했습니다.");
+    },
+  });
+
+  const dismissCancelNoticeMutation = useMutation({
+    mutationFn: orderApi.dismissKitchenCancelNotice,
+    onSuccess: (order) => {
+      queryClient.setQueryData<Order[]>(["kitchen-canceled-orders"], (current) =>
+        current?.filter((item) => item.id !== order.id) ?? current,
+      );
+      setCanceledNotices((current) => current.filter((notice) => notice.orderId !== order.id));
+      queryClient.invalidateQueries({ queryKey: ["kitchen-canceled-orders"] });
+    },
+    onError: (error) => {
+      toastError(error, "취소 알림을 정리하지 못했습니다.");
     },
   });
 
@@ -450,50 +545,105 @@ function KitchenOrderBoardContent() {
           })}
         </section>
       </div>
-      <NoticeDialog
-        open={cancelNoticeDialogOpen}
-        title="취소 알림"
-        tone="error"
-        confirmText="확인"
-        onConfirm={() => {
-          setCancelNoticeDialogOpen(false);
-          setDismissedCanceledOrderIds((current) => {
-            const next = new Set(current);
-            visibleCanceledNotices.forEach((notice) => {
-              if (notice.orderId != null) {
-                next.add(notice.orderId);
-              }
-            });
-            return next;
-          });
-          setCanceledNotices([]);
-        }}
-      >
-        <div className="space-y-3">
-          <p className="text-sm font-semibold text-foreground">
-            취소된 주문은 주방 보드에서 제외했습니다.
-          </p>
-          <div className="max-h-72 space-y-2 overflow-y-auto">
-            {visibleCanceledNotices.map((notice) => (
-              <div
-                key={notice.key}
-                className="rounded-md border border-red-200 bg-red-50 px-3 py-2"
-              >
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="min-w-0 truncate font-bold text-red-800">
-                    {notice.tableName ?? "테이블 미지정"}
-                    {notice.orderNo ? ` · #${notice.orderNo.split("-").at(-1) ?? notice.orderNo}` : ""}
-                  </span>
-                  <span className="shrink-0 text-xs font-semibold text-red-700">
-                    {formatTime(notice.receivedAt.toISOString())}
-                  </span>
-                </div>
-                <p className="mt-2 text-sm font-semibold text-red-800">{notice.message}</p>
+      {cancelNoticeDialogOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="kitchen-cancel-notice-dialog-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+        >
+          <div className="w-full max-w-5xl overflow-hidden rounded-lg border border-border bg-background shadow-xl">
+            <div className="flex items-center gap-3 bg-red-50 px-5 py-4 text-red-700">
+              <XCircle className="h-6 w-6 shrink-0 text-red-600" />
+              <h2 id="kitchen-cancel-notice-dialog-title" className="text-lg font-black tracking-tight">
+                취소 알림
+              </h2>
+            </div>
+            <div className="p-5">
+              <p className="text-sm font-semibold text-foreground">
+                취소된 주문은 주방 보드에서 제외했습니다. 확인 완료로 옮긴 뒤 정리하면 알림 목록에서 사라집니다.
+              </p>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <section className="min-h-72 rounded-md border border-red-200 bg-red-50/55 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-black text-red-900">확인 필요</h3>
+                      <p className="mt-0.5 text-xs font-semibold text-red-700">주방 확인 전</p>
+                    </div>
+                    <span className="rounded-md border border-red-200 bg-background px-2 py-1 text-xs font-bold text-red-800">
+                      {pendingCanceledNotices.length}건
+                    </span>
+                  </div>
+                  <div className="max-h-[56vh] space-y-2 overflow-y-auto pr-1">
+                    {pendingCanceledNotices.length === 0 ? (
+                      <CancelNoticeEmpty label="확인할 취소 없음" />
+                    ) : null}
+                    {pendingCanceledNotices.map((notice) => (
+                      <KitchenCanceledNoticeCard
+                        key={notice.key}
+                        notice={notice}
+                        actionLabel="확인 완료"
+                        actionIcon={CheckCircle2}
+                        actionClassName="bg-red-600 text-white hover:bg-red-700"
+                        actionDisabled={notice.orderId == null || confirmCancelNoticeMutation.isPending}
+                        onAction={() => {
+                          if (notice.orderId != null) {
+                            confirmCancelNoticeMutation.mutate(notice.orderId);
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                </section>
+
+                <section className="min-h-72 rounded-md border border-zinc-200 bg-zinc-50/70 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-black text-zinc-900">확인 완료</h3>
+                      <p className="mt-0.5 text-xs font-semibold text-muted-foreground">정리 대기</p>
+                    </div>
+                    <span className="rounded-md border border-zinc-200 bg-background px-2 py-1 text-xs font-bold text-zinc-800">
+                      {confirmedCanceledNotices.length}건
+                    </span>
+                  </div>
+                  <div className="max-h-[56vh] space-y-2 overflow-y-auto pr-1">
+                    {confirmedCanceledNotices.length === 0 ? (
+                      <CancelNoticeEmpty label="정리 대기 없음" />
+                    ) : null}
+                    {confirmedCanceledNotices.map((notice) => (
+                      <KitchenCanceledNoticeCard
+                        key={notice.key}
+                        notice={notice}
+                        actionLabel="정리"
+                        actionIcon={Trash2}
+                        actionClassName="border border-zinc-300 bg-background text-zinc-800 hover:bg-zinc-100"
+                        actionDisabled={notice.orderId == null || dismissCancelNoticeMutation.isPending}
+                        onAction={() => {
+                          if (notice.orderId != null) {
+                            dismissCancelNoticeMutation.mutate(notice.orderId);
+                            return;
+                          }
+                          setCanceledNotices((current) => current.filter((item) => item.key !== notice.key));
+                        }}
+                      />
+                    ))}
+                  </div>
+                </section>
               </div>
-            ))}
+            </div>
+            <div className="border-t border-border bg-muted/20 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setCancelNoticeDialogOpen(false)}
+                className="flex h-11 w-full items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                닫기
+              </button>
+            </div>
           </div>
         </div>
-      </NoticeDialog>
+      ) : null}
 
       {cancelTarget ? (
         <div
@@ -543,6 +693,104 @@ function KitchenOrderBoardContent() {
         </div>
       ) : null}
     </main>
+  );
+}
+
+function KitchenCanceledNoticeCard({
+  notice,
+  actionLabel,
+  actionIcon: ActionIcon,
+  actionClassName,
+  actionDisabled = false,
+  onAction,
+}: {
+  notice: CanceledNotice;
+  actionLabel: string;
+  actionIcon: React.ComponentType<{ className?: string }>;
+  actionClassName: string;
+  actionDisabled?: boolean;
+  onAction: () => void;
+}) {
+  return (
+    <div className="rounded-md border border-red-200 bg-background px-3 py-2 shadow-sm">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="min-w-0 truncate font-bold text-red-800">
+          {notice.tableName ?? "테이블 미지정"}
+          {notice.orderNo ? ` · #${notice.orderNo.split("-").at(-1) ?? notice.orderNo}` : ""}
+        </span>
+        <span className="shrink-0 text-xs font-semibold text-red-700">
+          {formatTime(notice.receivedAt.toISOString())}
+        </span>
+      </div>
+      <p className="mt-2 text-sm font-semibold text-red-800">{notice.message}</p>
+      {notice.items.length > 0 ? (
+        <div className="mt-3 divide-y divide-red-100 rounded-md border border-red-100 bg-white/70">
+          {notice.items.map((item) => (
+            <div key={item.id} className="px-3 py-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-foreground">{item.name}</p>
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    {formatPrice(item.unitPrice)}원 x {item.quantity}
+                  </p>
+                </div>
+                <p className="shrink-0 text-sm font-black text-foreground">
+                  {formatPrice(item.lineTotal)}원
+                </p>
+              </div>
+              {item.components.length > 0 ? (
+                <div className="mt-2 space-y-1 border-t border-red-100 pt-2">
+                  {item.components.map((component) => (
+                    <div
+                      key={`${item.id}-${component.name}`}
+                      className="flex items-center justify-between gap-2 text-xs font-semibold text-muted-foreground"
+                    >
+                      <span className="truncate">{component.name}</span>
+                      <span className="shrink-0">x{component.quantity}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 rounded-md border border-red-100 bg-white/70 px-3 py-2 text-xs font-semibold text-muted-foreground">
+          취소된 메뉴 정보는 주문 내역 동기화 후 표시됩니다.
+        </p>
+      )}
+      {notice.totalAmount != null ? (
+        <div className="mt-2 flex items-center justify-between rounded-md bg-red-100 px-3 py-2 text-red-800">
+          <span className="text-xs font-bold">
+            취소 수량 {notice.totalQuantity ?? notice.items.reduce((sum, item) => sum + item.quantity, 0)}개
+          </span>
+          <span className="text-sm font-black">{formatPrice(notice.totalAmount)}원</span>
+        </div>
+      ) : null}
+      <button
+        type="button"
+        onClick={onAction}
+        disabled={actionDisabled}
+        className={cn(
+          "mt-3 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-md px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+          actionClassName,
+        )}
+      >
+        <ActionIcon className="h-3.5 w-3.5" />
+        {actionLabel}
+      </button>
+    </div>
+  );
+}
+
+function CancelNoticeEmpty({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-40 items-center justify-center rounded-md border border-dashed border-border bg-background/70 p-4 text-center">
+      <div>
+        <ReceiptText className="mx-auto h-5 w-5 text-muted-foreground" />
+        <p className="mt-2 text-sm font-semibold text-muted-foreground">{label}</p>
+      </div>
+    </div>
   );
 }
 

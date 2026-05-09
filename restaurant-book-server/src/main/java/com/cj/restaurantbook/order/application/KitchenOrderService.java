@@ -30,7 +30,7 @@ public class KitchenOrderService {
 
     @Transactional(readOnly = true)
     public List<OrderResponse> findRecentCanceledOrders() {
-        return orderRepository.findTop10ByStatusAndCancelMessageIsNotNullOrderByUpdatedAtDescIdDesc(
+        return orderRepository.findTop10ByStatusAndCancelMessageIsNotNullAndKitchenCancelDismissedAtIsNullOrderByUpdatedAtDescIdDesc(
                         OrderStatus.CANCELED
                 ).stream()
                 .map(OrderResponse::from)
@@ -75,6 +75,22 @@ public class KitchenOrderService {
 
         order.cancel(cancelMessage);
         orderBroadcaster.broadcastOrderChangedAfterCommit("CANCELED", order.getId(), order.getTableName(), order.getCancelMessage());
+        return OrderResponse.from(order);
+    }
+
+    @Transactional
+    public OrderResponse confirmCancelNotice(Long orderId) {
+        Order order = findOrder(orderId);
+        transition(order, Order::confirmKitchenCancelNotice);
+        orderBroadcaster.broadcastOrderChangedAfterCommit("KITCHEN_CANCEL_NOTICE_CONFIRMED", order.getId(), order.getTableName());
+        return OrderResponse.from(order);
+    }
+
+    @Transactional
+    public OrderResponse dismissCancelNotice(Long orderId) {
+        Order order = findOrder(orderId);
+        transition(order, Order::dismissKitchenCancelNotice);
+        orderBroadcaster.broadcastOrderChangedAfterCommit("KITCHEN_CANCEL_NOTICE_DISMISSED", order.getId(), order.getTableName());
         return OrderResponse.from(order);
     }
 
