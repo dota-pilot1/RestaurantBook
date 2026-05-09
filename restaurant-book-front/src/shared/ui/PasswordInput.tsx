@@ -34,7 +34,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
           onClick={() => setVisible((v) => !v)}
           className="absolute inset-y-0 right-2 flex items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
         >
-          <span className="rounded-md p-1 hover:bg-accent">
+          <span className="translate-y-px rounded-md p-1 hover:bg-accent">
             {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </span>
         </button>
