@@ -45,8 +45,9 @@ public class NavigationMenuSeeder implements ApplicationRunner {
                 new NavigationMenuDef("ADMIN_ORDERS",          "ADMIN_OPERATIONS", "주문 관리", null,              "/orders",           "ClipboardList",   RoleSeeder.ROLE_ADMIN,   1),
                 new NavigationMenuDef("ADMIN_KITCHEN",         "ADMIN_OPERATIONS", "주방 현황", null,              "/kitchen-board",    "Utensils",        RoleSeeder.ROLE_ADMIN,   2),
                 new NavigationMenuDef("ADMIN_SALES",           "ADMIN_OPERATIONS", "매출 관리", null,              "/sales",            "BarChart3",       RoleSeeder.ROLE_ADMIN,   3),
-                new NavigationMenuDef("ADMIN_BOARDS",          "ADMIN_OPERATIONS", "게시글 관리", null,            "/admin/boards",     "MessageSquare",   RoleSeeder.ROLE_ADMIN,   4),
-                new NavigationMenuDef("ADMIN_BOARD_CONFIGS",    "ADMIN_OPERATIONS", "게시판 설정", null,            "/admin/board-configs", "Settings",     RoleSeeder.ROLE_ADMIN,   5),
+                new NavigationMenuDef("ADMIN_CALENDAR",        "ADMIN_OPERATIONS", "일정 관리", null,              "/admin/calendar",   "CalendarCheck2",  RoleSeeder.ROLE_ADMIN,   4),
+                new NavigationMenuDef("ADMIN_BOARDS",          "ADMIN_OPERATIONS", "게시글 관리", null,            "/admin/boards",     "MessageSquare",   RoleSeeder.ROLE_ADMIN,   5),
+                new NavigationMenuDef("ADMIN_BOARD_CONFIGS",    "ADMIN_OPERATIONS", "게시판 설정", null,            "/admin/board-configs", "Settings",     RoleSeeder.ROLE_ADMIN,   6),
 
                 new NavigationMenuDef("ADMIN_PRODUCTS",        "ADMIN", "상품 관리",     null,                   null,                "ShoppingBag",     RoleSeeder.ROLE_ADMIN,   1),
                 new NavigationMenuDef("ADMIN_SALE_MENUS",      "ADMIN_PRODUCTS", "판매 메뉴 관리", null,            "/sale-menus",       "ShoppingBag",     RoleSeeder.ROLE_ADMIN,   0),

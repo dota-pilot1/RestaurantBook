@@ -67,6 +67,10 @@ public enum ErrorCode {
     BOARD_WRITE_FORBIDDEN(HttpStatus.FORBIDDEN, "BOARD_004", "이 게시판은 작성이 제한됩니다."),
     BOARD_AUTHOR_REQUIRED(HttpStatus.FORBIDDEN, "BOARD_005", "게시글 작성자만 처리할 수 있습니다."),
     BOARD_COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "BOARD_006", "답변을 찾을 수 없습니다."),
+    ADMIN_CALENDAR_ENTRY_NOT_FOUND(HttpStatus.NOT_FOUND, "ADMIN_CALENDAR_001", "일정을 찾을 수 없습니다."),
+    ADMIN_CALENDAR_INVALID_RANGE(HttpStatus.BAD_REQUEST, "ADMIN_CALENDAR_002", "조회 기간이 올바르지 않습니다."),
+    ADMIN_CALENDAR_RANGE_TOO_WIDE(HttpStatus.BAD_REQUEST, "ADMIN_CALENDAR_003", "조회 기간이 너무 깁니다."),
+    ADMIN_CALENDAR_TITLE_REQUIRED(HttpStatus.BAD_REQUEST, "ADMIN_CALENDAR_004", "일정 제목을 입력해주세요."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_999", "서버 오류가 발생했습니다.");
 
     private final HttpStatus status;
