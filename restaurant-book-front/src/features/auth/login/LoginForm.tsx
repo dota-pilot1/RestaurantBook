@@ -54,8 +54,8 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     resolver: zodResolver(loginSchema),
     mode: "onBlur",
     defaultValues: {
-      email: "admin@restaurantbook.local",
-      password: "password123",
+      email: "",
+      password: "",
     },
   });
 
