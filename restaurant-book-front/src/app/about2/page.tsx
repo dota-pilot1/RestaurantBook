@@ -289,7 +289,7 @@ export default function About2Page() {
             어떤 기기에서든<br />
             <span className="text-primary">하나로 연결되는 매장</span>
           </h1>
-          <p className="mt-4 text-sm text-muted-foreground sm:text-base">
+          <p className="mt-4 text-sm text-foreground/70 sm:text-base">
             키오스크·주방·대기판·직원 기기·데스크까지<br className="hidden sm:block" />
             각 역할에 맞는 화면으로 전 과정을 연결합니다.
           </p>
@@ -311,17 +311,17 @@ export default function About2Page() {
       <section className="mx-auto max-w-5xl px-4 py-16">
         <FadeUp>
           <h2 className="mb-2 text-center text-xl font-bold tracking-tight">구성 기기 한눈에 보기</h2>
-          <p className="mb-10 text-center text-sm text-muted-foreground">매장에 도입되는 기기와 각 담당 역할입니다.</p>
+          <p className="mb-10 text-center text-sm text-foreground/65">매장에 도입되는 기기와 각 담당 역할입니다.</p>
         </FadeUp>
         <FadeUp delay={0.1}>
           <div className="overflow-hidden rounded-2xl border border-border bg-background shadow-sm">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">기기</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground hidden sm:table-cell">형태</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">담당</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground hidden md:table-cell">주요 기능</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-foreground/60">기기</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-foreground/60 hidden sm:table-cell">형태</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-foreground/60">담당</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-foreground/60 hidden md:table-cell">주요 기능</th>
                 </tr>
               </thead>
               <tbody>
@@ -344,14 +344,14 @@ export default function About2Page() {
                           <span className="font-medium text-foreground">{d.name}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-muted-foreground hidden sm:table-cell">{d.desc}</td>
+                      <td className="px-4 py-3.5 text-foreground/80 hidden sm:table-cell">{d.desc}</td>
                       <td className="px-4 py-3.5">
                         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${d.bg} ${d.color}`}>
                           <span className={`h-1.5 w-1.5 rounded-full ${d.dot}`} />
                           {d.who}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-xs text-muted-foreground hidden md:table-cell leading-relaxed">{d.usage}</td>
+                      <td className="px-4 py-3.5 text-xs text-foreground/75 hidden md:table-cell leading-relaxed">{d.usage}</td>
                     </motion.tr>
                   );
                 })}
@@ -366,7 +366,7 @@ export default function About2Page() {
         <div className="mx-auto max-w-3xl">
           <FadeUp>
             <h2 className="mb-2 text-center text-xl font-bold tracking-tight">전체 사용 시나리오</h2>
-            <p className="mb-10 text-center text-sm text-muted-foreground">도입부터 일상 운영, 그리고 향후 확장까지의 흐름입니다.</p>
+            <p className="mb-10 text-center text-sm text-foreground/65">도입부터 일상 운영, 그리고 향후 확장까지의 흐름입니다.</p>
           </FadeUp>
           <ScenarioAccordion />
         </div>
@@ -403,7 +403,7 @@ export default function About2Page() {
                             <Icon className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
                             <div>
                               <p className="font-semibold text-foreground">{step.title}</p>
-                              <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{step.desc}</p>
+                              <p className="mt-1 text-sm text-foreground/70 leading-relaxed">{step.desc}</p>
                             </div>
                           </div>
                           <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${step.tagColor}`}>{step.tag}</span>
@@ -445,7 +445,7 @@ export default function About2Page() {
                       <span className="text-xs font-bold text-muted-foreground">STEP {String(i + 1).padStart(2, "0")}</span>
                     </div>
                     <p className="font-semibold text-foreground">{step.title}</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
+                    <p className="text-xs text-foreground/70 leading-relaxed">{step.desc}</p>
                     <div className="mt-auto flex items-center gap-1 text-xs text-sky-600 dark:text-sky-400 opacity-0 transition-opacity group-hover:opacity-100">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       완료 처리 가능
@@ -463,7 +463,7 @@ export default function About2Page() {
         <FadeUp>
           <div className="mx-auto max-w-md">
             <h2 className="text-xl font-bold">지금 바로 체험해보세요</h2>
-            <p className="mt-2 text-sm text-muted-foreground">테스트 계정으로 각 역할별 화면을 체험할 수 있습니다.</p>
+            <p className="mt-2 text-sm text-foreground/70">테스트 계정으로 각 역할별 화면을 체험할 수 있습니다.</p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <Link href="/login" className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity">
                 로그인하기 <ArrowRight className="h-4 w-4" />
