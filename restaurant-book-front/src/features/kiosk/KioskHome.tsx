@@ -256,6 +256,7 @@ export function KioskHome() {
   );
 
   useEffect(() => {
+    if (categoriesLoading) return;
     if (activeTab.type === "SET") return;
     if (visibleCategories.some((category) => category.id === activeTab.categoryId)) return;
     if (visibleCategories.length > 0) {
@@ -263,7 +264,7 @@ export function KioskHome() {
     } else {
       setActiveTab(SET_TAB);
     }
-  }, [activeTab, visibleCategories]);
+  }, [activeTab, visibleCategories, categoriesLoading]);
 
   const productFilters = useMemo(
     () =>
