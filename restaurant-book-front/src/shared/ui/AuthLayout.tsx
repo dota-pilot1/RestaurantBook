@@ -2,10 +2,20 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { BookOpen, Image as ImageIcon, Info, Utensils } from "lucide-react";
+import { useState } from "react";
+import { BookOpen, Image as ImageIcon, Info, Settings, Utensils } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { siteSettingApi } from "@/entities/site-setting/api/siteSettingApi";
+import {
+  getKitchenHeaderNavVisible,
+  getStaffHeaderNavVisible,
+  setKitchenHeaderNavVisible,
+  setStaffHeaderNavVisible,
+} from "@/shared/lib/kitchenHeaderNavVisibility";
+import { toast, toastError } from "@/shared/lib/toast";
+import { PasswordInput } from "@/shared/ui/PasswordInput";
+import { Switch } from "@/shared/ui/Switch";
 
 type AuthLayoutProps = {
   title: string;
@@ -15,6 +25,14 @@ type AuthLayoutProps = {
 
 export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
   const { t } = useTranslation("auth");
+  const queryClient = useQueryClient();
+  const [settingsPasswordOpen, setSettingsPasswordOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsPassword, setSettingsPassword] = useState("");
+  const [settingsPasswordError, setSettingsPasswordError] = useState("");
+  const [draftCustomerHeaderNavVisible, setDraftCustomerHeaderNavVisible] = useState(true);
+  const [draftKitchenHeaderNavVisible, setDraftKitchenHeaderNavVisible] = useState(true);
+  const [draftStaffHeaderNavVisible, setDraftStaffHeaderNavVisible] = useState(true);
 
   const { data: siteSetting } = useQuery({
     queryKey: ["site-settings"],
@@ -23,6 +41,46 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
   });
 
   const heroImageUrl = siteSetting?.heroImageUrl ?? null;
+
+  const updateHeaderNavMutation = useMutation({
+    mutationFn: () =>
+      siteSettingApi.updateKioskHeaderNav({
+        password: settingsPassword,
+        headerNavVisible: draftCustomerHeaderNavVisible,
+      }),
+    onSuccess: (fresh) => {
+      queryClient.setQueryData(["site-settings"], fresh);
+      setKitchenHeaderNavVisible(draftKitchenHeaderNavVisible);
+      setStaffHeaderNavVisible(draftStaffHeaderNavVisible);
+      setSettingsPassword("");
+      setSettingsPasswordError("");
+      setSettingsOpen(false);
+      toast.success("화면 헤더 설정을 저장했습니다.");
+    },
+    onError: (error) => {
+      toastError(error, "헤더 설정을 저장하지 못했습니다.");
+    },
+  });
+
+  const openSettingsPasswordDialog = () => {
+    setSettingsPassword("admin123");
+    setSettingsPasswordError("");
+    setSettingsPasswordOpen(true);
+  };
+
+  const confirmSettingsPassword = () => {
+    if (settingsPassword !== "admin123") {
+      setSettingsPasswordError("비밀번호가 올바르지 않습니다.");
+      return;
+    }
+
+    setSettingsPasswordError("");
+    setSettingsPasswordOpen(false);
+    setDraftCustomerHeaderNavVisible(siteSetting?.headerNavVisible ?? true);
+    setDraftKitchenHeaderNavVisible(getKitchenHeaderNavVisible());
+    setDraftStaffHeaderNavVisible(getStaffHeaderNavVisible());
+    setSettingsOpen(true);
+  };
 
   return (
     <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-muted/20 px-4 py-10 sm:py-14">
@@ -89,6 +147,16 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
                 <Info className="h-3.5 w-3.5" />
                 {t("serviceIntro")}
               </Link>
+              <button
+                type="button"
+                aria-label="화면 헤더 설정"
+                title="화면 헤더 설정"
+                onClick={openSettingsPasswordDialog}
+                className="inline-flex items-center gap-1.5 rounded border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                헤더 설정
+              </button>
             </div>
             <div className="w-full max-w-lg space-y-5">
               <div className="space-y-1.5 text-center lg:text-left">
@@ -100,6 +168,152 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
           </section>
         </div>
       </div>
+      {settingsPasswordOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              confirmSettingsPassword();
+            }}
+            className="w-full max-w-sm rounded-lg border border-border bg-background p-5 shadow-xl"
+          >
+            <h2 className="text-lg font-black">화면 헤더 설정</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              설정을 변경하려면 관리자 비밀번호를 입력해주세요.
+            </p>
+            <div className="mt-4">
+              <label className="text-sm font-bold" htmlFor="auth-header-settings-password">
+                비밀번호
+              </label>
+              <div className="mt-2">
+                <PasswordInput
+                  id="auth-header-settings-password"
+                  value={settingsPassword}
+                  autoFocus
+                  onChange={(event) => {
+                    setSettingsPassword(event.target.value);
+                    setSettingsPasswordError("");
+                  }}
+                  invalid={!!settingsPasswordError}
+                  className="h-11"
+                />
+              </div>
+              {settingsPasswordError ? (
+                <p className="mt-2 text-xs font-semibold text-destructive">
+                  {settingsPasswordError}
+                </p>
+              ) : null}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsPasswordOpen(false);
+                  setSettingsPassword("");
+                  setSettingsPasswordError("");
+                }}
+                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent"
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                className="rounded-md bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground hover:opacity-90"
+              >
+                확인
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+      {settingsOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+        >
+          <div className="w-full max-w-md rounded-lg border border-border bg-background p-5 shadow-xl">
+            <h2 className="text-lg font-black">화면 헤더 설정</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              고객, 주방, 직원 화면의 상단 헤더 표시 방식을 조정합니다.
+            </p>
+
+            <div className="mt-5 space-y-3">
+              <HeaderVisibilitySwitch
+                title="고객 화면"
+                description="끄면 고객 주문 화면에서 상단 헤더가 숨겨집니다."
+                checked={draftCustomerHeaderNavVisible}
+                onCheckedChange={setDraftCustomerHeaderNavVisible}
+              />
+              <HeaderVisibilitySwitch
+                title="주방 화면"
+                description="끄면 주방 화면에서 상단 헤더가 숨겨집니다."
+                checked={draftKitchenHeaderNavVisible}
+                onCheckedChange={setDraftKitchenHeaderNavVisible}
+              />
+              <HeaderVisibilitySwitch
+                title="직원 화면"
+                description="끄면 직원 화면에서 상단 헤더가 숨겨집니다."
+                checked={draftStaffHeaderNavVisible}
+                onCheckedChange={setDraftStaffHeaderNavVisible}
+              />
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={updateHeaderNavMutation.isPending}
+                onClick={() => {
+                  setSettingsOpen(false);
+                  setSettingsPassword("");
+                  setSettingsPasswordError("");
+                }}
+                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-60"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={updateHeaderNavMutation.isPending}
+                onClick={() => updateHeaderNavMutation.mutate()}
+                className="rounded-md bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground hover:opacity-90 disabled:opacity-60"
+              >
+                {updateHeaderNavMutation.isPending ? "저장 중" : "저장"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
+  );
+}
+
+function HeaderVisibilitySwitch({
+  title,
+  description,
+  checked,
+  onCheckedChange,
+}: {
+  title: string;
+  description: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-muted/30 p-4">
+      <div>
+        <p className="text-sm font-black">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
+      </div>
+      <Switch
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        aria-label={`${title} 헤더 네비 출력 여부`}
+      />
+    </div>
   );
 }

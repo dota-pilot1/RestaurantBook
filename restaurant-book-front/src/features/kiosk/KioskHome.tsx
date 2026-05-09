@@ -1165,17 +1165,19 @@ export function KioskHome() {
               <label className="text-sm font-bold" htmlFor="kiosk-settings-password">
                 비밀번호
               </label>
-              <PasswordInput
-                id="kiosk-settings-password"
-                value={settingsPassword}
-                autoFocus
-                onChange={(event) => {
-                  setSettingsPassword(event.target.value);
-                  setSettingsPasswordError("");
-                }}
-                invalid={!!settingsPasswordError}
-                className="mt-2 h-11"
-              />
+              <div className="mt-2">
+                <PasswordInput
+                  id="kiosk-settings-password"
+                  value={settingsPassword}
+                  autoFocus
+                  onChange={(event) => {
+                    setSettingsPassword(event.target.value);
+                    setSettingsPasswordError("");
+                  }}
+                  invalid={!!settingsPasswordError}
+                  className="h-11"
+                />
+              </div>
               {settingsPasswordError ? (
                 <p className="mt-2 text-xs font-semibold text-destructive">
                   {settingsPasswordError}
