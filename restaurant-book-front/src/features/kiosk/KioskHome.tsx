@@ -65,9 +65,21 @@ type CancelNotice = {
   orderNo: string | null;
   message: string;
   receivedAt: Date;
+  items: CancelNoticeItem[];
+  totalAmount: number | null;
+  totalQuantity: number | null;
+};
+
+type CancelNoticeItem = {
+  id: number;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+  lineTotal: number;
 };
 
 const SET_TAB: KioskTab = { type: "SET", label: "세트" };
+const CUSTOMER_ORDER_REFETCH_INTERVAL_MS = 20000;
 
 const formatPrice = (value: number) => value.toLocaleString("ko-KR");
 
@@ -76,6 +88,26 @@ const formatTime = (value: string) =>
     hour: "2-digit",
     minute: "2-digit",
   });
+
+const getOrderQuantity = (order: Order) =>
+  order.items.reduce((sum, item) => sum + item.quantity, 0);
+
+const toCancelNoticeItems = (order: Order): CancelNoticeItem[] =>
+  order.items.map((item) => ({
+    id: item.id,
+    name: item.name,
+    unitPrice: item.unitPrice,
+    quantity: item.quantity,
+    lineTotal: item.lineTotal,
+  }));
+
+const mergeCancelNoticeOrder = (notice: CancelNotice, order: Order): CancelNotice => ({
+  ...notice,
+  orderNo: notice.orderNo ?? order.orderNo,
+  items: notice.items.length > 0 ? notice.items : toCancelNoticeItems(order),
+  totalAmount: notice.totalAmount ?? order.totalAmount,
+  totalQuantity: notice.totalQuantity ?? getOrderQuantity(order),
+});
 
 const playCancelAlertSound = () => {
   if (typeof window === "undefined") return;
@@ -171,7 +203,6 @@ export function KioskHome() {
   const [cancelNotices, setCancelNotices] = useState<CancelNotice[]>([]);
   const [dismissedCanceledOrderIds, setDismissedCanceledOrderIds] = useState<Set<number>>(() => new Set());
   const [cancelNoticesOpen, setCancelNoticesOpen] = useState(false);
-  const [activeCancelNotice, setActiveCancelNotice] = useState<CancelNotice | null>(null);
   const [orderConfirmOpen, setOrderConfirmOpen] = useState(false);
   const [tableName, setTableName] = useState("");
   const [staffCallDialogOpen, setStaffCallDialogOpen] = useState(false);
@@ -205,26 +236,26 @@ export function KioskHome() {
       orderNo: canceled?.orderNo ?? null,
       message,
       receivedAt: new Date(),
+      items: canceled ? toCancelNoticeItems(canceled) : [],
+      totalAmount: canceled?.totalAmount ?? null,
+      totalQuantity: canceled ? getOrderQuantity(canceled) : null,
     };
     setCancelNotices((current) => [
       notice,
       ...current,
     ].slice(0, 10));
-    setActiveCancelNotice(notice);
     playCancelAlertSound();
-    toast.error("주문 취소 안내가 도착했습니다.");
+    toast.error("주문이 취소되었습니다.", {
+      description: `${message} · 취소 버튼에서 다시 확인할 수 있습니다.`,
+      duration: 10000,
+      position: "top-center",
+    });
   });
   useCustomerStaffCallsWebSocket(tableName, tableName.trim().length > 0, (payload) => {
     if (payload.reason === "ACKNOWLEDGED") {
       toast.success("직원이 호출을 확인했습니다.");
     }
   });
-
-  useEffect(() => {
-    if (!activeCancelNotice) return;
-    const timer = window.setTimeout(() => setActiveCancelNotice(null), 10000);
-    return () => window.clearTimeout(timer);
-  }, [activeCancelNotice]);
 
   const {
     data: categories = [],
@@ -294,7 +325,7 @@ export function KioskHome() {
     queryKey: ["customer-active-orders", tableName],
     queryFn: () => orderApi.getActiveCustomerOrders(tableName),
     enabled: tableName.trim().length > 0,
-    refetchInterval: 5000,
+    refetchInterval: CUSTOMER_ORDER_REFETCH_INTERVAL_MS,
   });
 
   const {
@@ -303,7 +334,7 @@ export function KioskHome() {
     queryKey: ["customer-canceled-orders", tableName],
     queryFn: () => orderApi.getCanceledCustomerOrders(tableName),
     enabled: tableName.trim().length > 0,
-    refetchInterval: 5000,
+    refetchInterval: CUSTOMER_ORDER_REFETCH_INTERVAL_MS,
   });
 
   const {
@@ -312,7 +343,7 @@ export function KioskHome() {
     queryKey: ["customer-active-staff-calls", tableName],
     queryFn: () => staffCallApi.getActiveCustomerCalls(tableName),
     enabled: tableName.trim().length > 0,
-    refetchInterval: 3000,
+    refetchInterval: 20000,
   });
 
   const {
@@ -329,7 +360,14 @@ export function KioskHome() {
   );
   const visibleCancelNotices = useMemo(() => {
     const seen = new Set<number>();
-    const fromEvents = cancelNotices.filter((notice) => {
+    const canceledOrderById = new Map(canceledOrders.map((order) => [order.id, order]));
+    const fromEvents = cancelNotices.map((notice) => {
+      if (notice.orderId == null) {
+        return notice;
+      }
+      const order = canceledOrderById.get(notice.orderId);
+      return order ? mergeCancelNoticeOrder(notice, order) : notice;
+    }).filter((notice) => {
       if (notice.orderId == null) {
         return true;
       }
@@ -354,6 +392,9 @@ export function KioskHome() {
         orderNo: order.orderNo,
         message: order.cancelMessage ?? "주문이 취소되었습니다.",
         receivedAt: new Date(order.updatedAt),
+        items: toCancelNoticeItems(order),
+        totalAmount: order.totalAmount,
+        totalQuantity: getOrderQuantity(order),
       }));
     return [...fromEvents, ...fromOrders].slice(0, 10);
   }, [cancelNotices, canceledOrders, dismissedCanceledOrderIds]);
@@ -418,7 +459,6 @@ export function KioskHome() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customer-canceled-orders", tableName] });
       setCancelNotices([]);
-      setActiveCancelNotice(null);
     },
     onError: (e) => {
       toastError(e, "취소 안내 확인 처리를 하지 못했습니다.");
@@ -990,40 +1030,39 @@ export function KioskHome() {
                   </span>
                 </div>
                 <p className="mt-2 text-sm font-bold text-red-800">{notice.message}</p>
+                {notice.items.length > 0 ? (
+                  <div className="mt-3 divide-y divide-red-100 rounded-md border border-red-100 bg-white/70">
+                    {notice.items.map((item) => (
+                      <div key={item.id} className="flex items-start justify-between gap-3 px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-foreground">{item.name}</p>
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            {formatPrice(item.unitPrice)}원 x {item.quantity}
+                          </p>
+                        </div>
+                        <p className="shrink-0 text-sm font-black text-foreground">
+                          {formatPrice(item.lineTotal)}원
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 rounded-md border border-red-100 bg-white/70 px-3 py-2 text-xs font-semibold text-muted-foreground">
+                    취소된 메뉴 정보는 주문 내역 동기화 후 표시됩니다.
+                  </p>
+                )}
+                {notice.totalAmount != null ? (
+                  <div className="mt-2 flex items-center justify-between rounded-md bg-red-100 px-3 py-2 text-red-800">
+                    <span className="text-xs font-bold">
+                      취소 수량 {notice.totalQuantity ?? notice.items.reduce((sum, item) => sum + item.quantity, 0)}개
+                    </span>
+                    <span className="text-sm font-black">{formatPrice(notice.totalAmount)}원</span>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
         </div>
-      </NoticeDialog>
-      <NoticeDialog
-        open={!!activeCancelNotice}
-        title="주문이 취소되었습니다"
-        tone="error"
-        confirmText="확인"
-        onConfirm={() => setActiveCancelNotice(null)}
-      >
-        {activeCancelNotice ? (
-          <div className="space-y-3">
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2">
-              <div className="flex items-center justify-between gap-2 text-xs font-semibold text-red-700">
-                <span className="min-w-0 truncate">
-                  {activeCancelNotice.orderNo
-                    ? `주문번호: ${activeCancelNotice.orderNo}`
-                    : "취소된 주문"}
-                </span>
-                <span className="shrink-0">
-                  {formatTime(activeCancelNotice.receivedAt.toISOString())}
-                </span>
-              </div>
-              <p className="mt-2 text-base font-black text-red-800">
-                {activeCancelNotice.message}
-              </p>
-            </div>
-            <p className="text-sm font-semibold text-muted-foreground">
-              이 안내는 취소 버튼에서 다시 확인할 수 있습니다.
-            </p>
-          </div>
-        ) : null}
       </NoticeDialog>
       {staffCallDialogOpen ? (
         <div
@@ -1479,7 +1518,10 @@ function AcceptedOrdersSummary({
         </span>
       </div>
       <div className="space-y-2">
-        {orders.map((order) => (
+        {orders.map((order) => {
+          const canCancelByCustomer = order.status === "RECEIVED";
+          const isCanceling = cancelingOrderId === order.id;
+          return (
             <div
               key={order.id}
               className={`rounded-md border p-2 pl-3 ${orderStatusCardClass[order.status]}`}
@@ -1495,19 +1537,27 @@ function AcceptedOrdersSummary({
                 <OrderHistoryItem key={item.id} item={item} compact />
               ))}
             </div>
-            {order.status === "RECEIVED" && (
-              <button
-                type="button"
-                onClick={() => onCancelOrder(order.id)}
-                disabled={cancelingOrderId === order.id}
-                className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-md border border-red-500/30 bg-background text-sm font-bold text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <XCircle className="h-4 w-4" />
-                {cancelingOrderId === order.id ? "취소 중" : "주문 취소"}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (canCancelByCustomer) {
+                  onCancelOrder(order.id);
+                }
+              }}
+              disabled={!canCancelByCustomer || isCanceling}
+              className={cn(
+                "mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-md border text-sm font-bold transition-colors disabled:cursor-not-allowed",
+                canCancelByCustomer
+                  ? "border-red-500/30 bg-background text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  : "border-border bg-muted/60 text-muted-foreground opacity-80",
+              )}
+            >
+              <XCircle className="h-4 w-4" />
+              {isCanceling ? "취소 중" : canCancelByCustomer ? "주문 취소" : "접수 후 취소는 직원 문의"}
+            </button>
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
