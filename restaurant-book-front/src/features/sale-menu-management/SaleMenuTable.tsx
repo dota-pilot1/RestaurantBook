@@ -1,8 +1,27 @@
 "use client";
 
 import Image from "next/image";
+import type { CSSProperties } from "react";
 import { useState } from "react";
-import { Edit2, ImageIcon, LayoutGrid, Table2, Trash2 } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Edit2, GripVertical, ImageIcon, LayoutGrid, Table2, Trash2 } from "lucide-react";
 import type { SaleMenu, SaleMenuStatus } from "@/entities/sale-menu/model/types";
 import { Checkbox } from "@/shared/ui/Checkbox";
 import { SelectInput } from "@/shared/ui/SelectInput";
@@ -12,6 +31,8 @@ import { ViewToggle } from "@/shared/ui/ViewToggle";
 type Props = {
   menus: SaleMenu[];
   isUpdating: boolean;
+  reorderEnabled: boolean;
+  toolbarContent?: React.ReactNode;
   selectedIds: Set<number>;
   allSelected: boolean;
   someSelected: boolean;
@@ -20,6 +41,7 @@ type Props = {
   onEdit: (menu: SaleMenu) => void;
   onDelete: (menu: SaleMenu) => void;
   onQuickUpdate: (menu: SaleMenu, patch: Partial<SaleMenu>) => void;
+  onReorder: (menus: SaleMenu[]) => void;
 };
 
 const STATUS_LABEL: Record<SaleMenuStatus, string> = {
@@ -39,6 +61,8 @@ type ViewMode = "table" | "card";
 export function SaleMenuTable({
   menus,
   isUpdating,
+  reorderEnabled,
+  toolbarContent,
   selectedIds,
   allSelected,
   someSelected,
@@ -47,26 +71,45 @@ export function SaleMenuTable({
   onEdit,
   onDelete,
   onQuickUpdate,
+  onReorder,
 }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!reorderEnabled || !over || active.id === over.id || isUpdating) return;
+
+    const oldIndex = menus.findIndex((menu) => menu.id === active.id);
+    const newIndex = menus.findIndex((menu) => menu.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    onReorder(arrayMove(menus, oldIndex, newIndex));
+  };
 
   return (
     <>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        {viewMode === "card" ? (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2">
-            <Checkbox
-              checked={allSelected}
-              indeterminate={someSelected && !allSelected}
-              disabled={!menus.length || isUpdating}
-              aria-label="전체 메뉴 선택"
-              onCheckedChange={onToggleAll}
-            />
-            <span className="text-sm font-medium">전체 선택</span>
-          </div>
-        ) : (
-          <span className="text-sm font-medium text-foreground">총 {menus.length}개 메뉴</span>
-        )}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          {toolbarContent}
+          {viewMode === "card" ? (
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2">
+              <Checkbox
+                checked={allSelected}
+                indeterminate={someSelected && !allSelected}
+                disabled={!menus.length || isUpdating}
+                aria-label="전체 메뉴 선택"
+                onCheckedChange={onToggleAll}
+              />
+              <span className="text-sm font-medium">전체 선택</span>
+            </div>
+          ) : (
+            <span />
+          )}
+        </div>
         <ViewToggle<ViewMode>
           value={viewMode}
           onChange={setViewMode}
@@ -76,6 +119,12 @@ export function SaleMenuTable({
           ]}
         />
       </div>
+
+      {viewMode === "table" && reorderEnabled && (
+        <p className="mb-2 text-xs text-muted-foreground">
+          드래그해서 선택한 카테고리 안의 메뉴 순서를 변경할 수 있습니다.
+        </p>
+      )}
 
       {viewMode === "card" ? (
         menus.length ? (
@@ -99,97 +148,219 @@ export function SaleMenuTable({
           </div>
         )
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[1040px] text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40">
-                <Th className="w-10">
-                  <Checkbox
-                    checked={allSelected}
-                    indeterminate={someSelected && !allSelected}
-                    disabled={!menus.length || isUpdating}
-                    aria-label="전체 메뉴 선택"
-                    onCheckedChange={onToggleAll}
-                  />
-                </Th>
-                <Th>이미지</Th>
-                <Th>메뉴명</Th>
-                <Th>카테고리</Th>
-                <Th>가격</Th>
-                <Th>상태</Th>
-                <Th>주문 유형</Th>
-                <Th>조리</Th>
-                <Th>노출</Th>
-                <Th>정렬</Th>
-                <Th className="text-right">관리</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {menus.length ? menus.map((menu) => (
-                <tr
-                  key={menu.id}
-                  className={`border-b border-border last:border-0 hover:bg-muted/20 ${
-                    selectedIds.has(menu.id) ? "bg-primary/5" : ""
-                  }`}
-                >
-                  <Td>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToVerticalAxis]}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full min-w-[1080px] text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/40">
+                  {reorderEnabled && <Th className="w-10" />}
+                  <Th className="w-10">
                     <Checkbox
-                      checked={selectedIds.has(menu.id)}
-                      disabled={isUpdating}
-                      aria-label={`${menu.name} 선택`}
-                      onCheckedChange={(checked) => onToggleOne(menu.id, checked)}
+                      checked={allSelected}
+                      indeterminate={someSelected && !allSelected}
+                      disabled={!menus.length || isUpdating}
+                      aria-label="전체 메뉴 선택"
+                      onCheckedChange={onToggleAll}
                     />
-                  </Td>
-                  <Td>
-                    <MenuImage menu={menu} size="sm" />
-                  </Td>
-                  <Td>
-                    <div className="max-w-[260px]">
-                      <p className="font-medium">{menu.name}</p>
-                      <p className="mt-1 truncate text-sm text-foreground/70">{menu.description || "-"}</p>
-                    </div>
-                  </Td>
-                  <Td>{menu.category?.name ?? "-"}</Td>
-                  <Td className="font-medium">{menu.price.toLocaleString("ko-KR")}원</Td>
-                  <Td>
-                    <StatusSelect menu={menu} disabled={isUpdating} onQuickUpdate={onQuickUpdate} />
-                  </Td>
-                  <Td>
-                    <OrderTypeBadges menu={menu} />
-                  </Td>
-                  <Td>
-                    <Switch
-                      checked={menu.requiresCooking}
-                      disabled={isUpdating}
-                      aria-label={`${menu.name} 조리 필요 여부`}
-                      onCheckedChange={(requiresCooking) => onQuickUpdate(menu, { requiresCooking })}
-                    />
-                  </Td>
-                  <Td>
-                    <Switch
-                      checked={menu.visible}
-                      disabled={isUpdating}
-                      aria-label={`${menu.name} 노출 여부`}
-                      onCheckedChange={(visible) => onQuickUpdate(menu, { visible })}
-                    />
-                  </Td>
-                  <Td className="font-medium text-foreground/75">{menu.displayOrder}</Td>
-                  <Td>
-                    <RowActions menu={menu} onEdit={onEdit} onDelete={onDelete} />
-                  </Td>
+                  </Th>
+                  <Th>이미지</Th>
+                  <Th>메뉴명</Th>
+                  <Th>카테고리</Th>
+                  <Th>가격</Th>
+                  <Th>상태</Th>
+                  <Th>주문 유형</Th>
+                  <Th>조리</Th>
+                  <Th>노출</Th>
+                  <Th>정렬</Th>
+                  <Th className="text-right">관리</Th>
                 </tr>
-              )) : (
-                <tr>
-                  <Td colSpan={11} className="py-8 text-center text-muted-foreground">
-                    등록된 판매 메뉴가 없습니다.
-                  </Td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {menus.length ? (
+                  reorderEnabled ? (
+                    <SortableContext items={menus.map((menu) => menu.id)} strategy={verticalListSortingStrategy}>
+                      {menus.map((menu) => (
+                        <SortableMenuRow
+                          key={menu.id}
+                          menu={menu}
+                          selected={selectedIds.has(menu.id)}
+                          disabled={isUpdating}
+                          onToggleOne={onToggleOne}
+                          onEdit={onEdit}
+                          onDelete={onDelete}
+                          onQuickUpdate={onQuickUpdate}
+                        />
+                      ))}
+                    </SortableContext>
+                  ) : (
+                    menus.map((menu) => (
+                      <MenuRow
+                        key={menu.id}
+                        menu={menu}
+                        selected={selectedIds.has(menu.id)}
+                        disabled={isUpdating}
+                        onToggleOne={onToggleOne}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        onQuickUpdate={onQuickUpdate}
+                      />
+                    ))
+                  )
+                ) : (
+                  <tr>
+                    <Td colSpan={reorderEnabled ? 12 : 11} className="py-8 text-center text-muted-foreground">
+                      등록된 판매 메뉴가 없습니다.
+                    </Td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </DndContext>
       )}
     </>
+  );
+}
+
+function SortableMenuRow({
+  menu,
+  selected,
+  disabled,
+  onToggleOne,
+  onEdit,
+  onDelete,
+  onQuickUpdate,
+}: {
+  menu: SaleMenu;
+  selected: boolean;
+  disabled: boolean;
+  onToggleOne: (menuId: number, checked: boolean) => void;
+  onEdit: (menu: SaleMenu) => void;
+  onDelete: (menu: SaleMenu) => void;
+  onQuickUpdate: (menu: SaleMenu, patch: Partial<SaleMenu>) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: menu.id,
+    disabled,
+  });
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <MenuRow
+      rowRef={setNodeRef}
+      style={style}
+      menu={menu}
+      selected={selected}
+      disabled={disabled}
+      dragging={isDragging}
+      dragHandle={
+        <button
+          type="button"
+          disabled={disabled}
+          className="inline-flex h-8 w-8 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label={`${menu.name} 순서 변경`}
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      }
+      onToggleOne={onToggleOne}
+      onEdit={onEdit}
+      onDelete={onDelete}
+      onQuickUpdate={onQuickUpdate}
+    />
+  );
+}
+
+function MenuRow({
+  menu,
+  selected,
+  disabled,
+  dragging = false,
+  dragHandle,
+  style,
+  rowRef,
+  onToggleOne,
+  onEdit,
+  onDelete,
+  onQuickUpdate,
+}: {
+  menu: SaleMenu;
+  selected: boolean;
+  disabled: boolean;
+  dragging?: boolean;
+  dragHandle?: React.ReactNode;
+  style?: CSSProperties;
+  rowRef?: (node: HTMLTableRowElement | null) => void;
+  onToggleOne: (menuId: number, checked: boolean) => void;
+  onEdit: (menu: SaleMenu) => void;
+  onDelete: (menu: SaleMenu) => void;
+  onQuickUpdate: (menu: SaleMenu, patch: Partial<SaleMenu>) => void;
+}) {
+  return (
+    <tr
+      ref={rowRef}
+      style={style}
+      className={`border-b border-border bg-background last:border-0 hover:bg-muted/20 ${
+        selected ? "bg-primary/5" : ""
+      } ${dragging ? "relative z-10 shadow-md" : ""}`}
+    >
+      {dragHandle && <Td>{dragHandle}</Td>}
+      <Td>
+        <Checkbox
+          checked={selected}
+          disabled={disabled}
+          aria-label={`${menu.name} 선택`}
+          onCheckedChange={(checked) => onToggleOne(menu.id, checked)}
+        />
+      </Td>
+      <Td>
+        <MenuImage menu={menu} size="sm" />
+      </Td>
+      <Td>
+        <div className="max-w-[260px]">
+          <p className="font-medium">{menu.name}</p>
+          <p className="mt-1 truncate text-sm text-foreground/70">{menu.description || "-"}</p>
+        </div>
+      </Td>
+      <Td>{menu.category?.name ?? "-"}</Td>
+      <Td className="font-medium">{menu.price.toLocaleString("ko-KR")}원</Td>
+      <Td>
+        <StatusSelect menu={menu} disabled={disabled} onQuickUpdate={onQuickUpdate} />
+      </Td>
+      <Td>
+        <OrderTypeBadges menu={menu} />
+      </Td>
+      <Td>
+        <Switch
+          checked={menu.requiresCooking}
+          disabled={disabled}
+          aria-label={`${menu.name} 조리 필요 여부`}
+          onCheckedChange={(requiresCooking) => onQuickUpdate(menu, { requiresCooking })}
+        />
+      </Td>
+      <Td>
+        <Switch
+          checked={menu.visible}
+          disabled={disabled}
+          aria-label={`${menu.name} 노출 여부`}
+          onCheckedChange={(visible) => onQuickUpdate(menu, { visible })}
+        />
+      </Td>
+      <Td className="font-medium text-foreground/75">{menu.displayOrder}</Td>
+      <Td>
+        <RowActions menu={menu} onEdit={onEdit} onDelete={onDelete} />
+      </Td>
+    </tr>
   );
 }
 
@@ -369,7 +540,7 @@ function Badge({ children }: { children: React.ReactNode }) {
   return <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-semibold text-foreground/80">{children}</span>;
 }
 
-function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function Th({ children, className = "" }: { children?: React.ReactNode; className?: string }) {
   return <th className={`px-4 py-2.5 text-left text-xs font-semibold text-foreground/60 ${className}`}>{children}</th>;
 }
 

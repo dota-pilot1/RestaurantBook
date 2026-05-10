@@ -10,6 +10,7 @@ import { saleMenuCategoryApi } from "@/entities/sale-menu-category/api/saleMenuC
 import { toast, toastError } from "@/shared/lib/toast";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { SelectInput } from "@/shared/ui/SelectInput";
+import { SaleMenuCategoryTabs } from "./SaleMenuCategoryTabs";
 import { SaleMenuFilters as SaleMenuFiltersPanel } from "./SaleMenuFilters";
 import { SaleMenuFormDialog } from "./SaleMenuFormDialog";
 import { SaleMenuTable } from "./SaleMenuTable";
@@ -38,9 +39,23 @@ export function SaleMenuManagement() {
     queryFn: () => saleMenuApi.list(cleanFilters),
   });
 
+  const { data: allMenus = [] } = useQuery({
+    queryKey: ["sale-menus", "category-counts"],
+    queryFn: () => saleMenuApi.list(),
+  });
+
+  const categoryOrderMap = useMemo(
+    () => new Map(categories.map((category) => [category.id, category.displayOrder])),
+    [categories],
+  );
+
   const sortedMenus = useMemo(
-    () => [...menus].sort((a, b) => a.displayOrder - b.displayOrder || a.id - b.id),
-    [menus],
+    () => [...menus].sort((a, b) => {
+      const aCategoryOrder = a.category ? categoryOrderMap.get(a.category.id) ?? 999999 : 999999;
+      const bCategoryOrder = b.category ? categoryOrderMap.get(b.category.id) ?? 999999 : 999999;
+      return aCategoryOrder - bCategoryOrder || a.displayOrder - b.displayOrder || a.id - b.id;
+    }),
+    [categoryOrderMap, menus],
   );
 
   const selectedMenus = useMemo(
@@ -100,7 +115,41 @@ export function SaleMenuManagement() {
     onError: (e) => toastError(e, "일괄 삭제에 실패했습니다."),
   });
 
-  const isMutating = updateMutation.isPending || bulkUpdateMutation.isPending || bulkDeleteMutation.isPending;
+  const reorderMutation = useMutation({
+    mutationFn: (nextMenus: SaleMenu[]) =>
+      Promise.all(
+        nextMenus.map((menu, index) => saleMenuApi.update(menu.id, toUpdateBody(menu, { displayOrder: index }))),
+      ),
+    onMutate: async (nextMenus) => {
+      await qc.cancelQueries({ queryKey: ["sale-menus", cleanFilters] });
+      const previous = qc.getQueryData<SaleMenu[]>(["sale-menus", cleanFilters]);
+      qc.setQueryData<SaleMenu[]>(
+        ["sale-menus", cleanFilters],
+        nextMenus.map((menu, index) => ({ ...menu, displayOrder: index })),
+      );
+      return { previous };
+    },
+    onSuccess: () => {
+      toast.success("메뉴 순서가 저장되었습니다.");
+      qc.invalidateQueries({ queryKey: ["sale-menus"] });
+      qc.invalidateQueries({ queryKey: ["customer-sale-products"] });
+    },
+    onError: (e, _nextMenus, context) => {
+      if (context?.previous) qc.setQueryData(["sale-menus", cleanFilters], context.previous);
+      toastError(e, "메뉴 순서 저장에 실패했습니다.");
+    },
+  });
+
+  const isMutating =
+    updateMutation.isPending ||
+    bulkUpdateMutation.isPending ||
+    bulkDeleteMutation.isPending ||
+    reorderMutation.isPending;
+  const canReorderMenus =
+    typeof cleanFilters.categoryId === "number" &&
+    !cleanFilters.keyword &&
+    !cleanFilters.status &&
+    cleanFilters.visible === undefined;
 
   const handleDownloadExcel = async () => {
     if (!sortedMenus.length) return;
@@ -160,30 +209,30 @@ export function SaleMenuManagement() {
   return (
     <>
       <div className="mb-4 flex flex-wrap justify-end gap-2">
-        <button
-          type="button"
-          onClick={handleDownloadExcel}
-          disabled={isDownloadingExcel || sortedMenus.length === 0}
-          className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Download className="h-4 w-4" />
-          {isDownloadingExcel ? "다운로드 중..." : "엑셀 다운로드"}
-        </button>
-        <Link
-          href="/sale-menu-categories"
-          className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm font-medium hover:bg-accent"
-        >
-          <FolderTree className="h-4 w-4" />
-          카테고리 관리
-        </Link>
-        <button
-          type="button"
-          onClick={() => setFormTarget("new")}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          <Plus className="h-4 w-4" />
-          메뉴 추가
-        </button>
+          <button
+            type="button"
+            onClick={handleDownloadExcel}
+            disabled={isDownloadingExcel || sortedMenus.length === 0}
+            className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Download className="h-4 w-4" />
+            {isDownloadingExcel ? "다운로드 중..." : "엑셀 다운로드"}
+          </button>
+          <Link
+            href="/sale-menu-categories"
+            className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm font-medium hover:bg-accent"
+          >
+            <FolderTree className="h-4 w-4" />
+            카테고리 관리
+          </Link>
+          <button
+            type="button"
+            onClick={() => setFormTarget("new")}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" />
+            메뉴 추가
+          </button>
       </div>
 
       <SaleMenuFiltersPanel filters={filters} categories={categories} onChange={setFilters} />
@@ -198,6 +247,18 @@ export function SaleMenuManagement() {
       <SaleMenuTable
         menus={sortedMenus}
         isUpdating={isMutating}
+        reorderEnabled={canReorderMenus}
+        toolbarContent={
+          <SaleMenuCategoryTabs
+            categories={categories}
+            menus={allMenus}
+            selectedCategoryId={filters.categoryId}
+            onSelect={(categoryId) => {
+              setSelectedIds(new Set());
+              setFilters((prev) => ({ ...prev, categoryId }));
+            }}
+          />
+        }
         selectedIds={selectedIds}
         allSelected={allSelected}
         someSelected={someSelected}
@@ -213,6 +274,7 @@ export function SaleMenuManagement() {
         onEdit={setFormTarget}
         onDelete={setDeleteTarget}
         onQuickUpdate={(menu, patch) => updateMutation.mutate({ menu, patch })}
+        onReorder={(nextMenus) => reorderMutation.mutate(nextMenus)}
       />
 
       {formTarget !== null && (
@@ -373,6 +435,6 @@ function toUpdateBody(menu: SaleMenu, patch: Partial<SaleMenu>) {
     availableDineIn: patch.availableDineIn ?? menu.availableDineIn,
     availableTakeout: patch.availableTakeout ?? menu.availableTakeout,
     requiresCooking: patch.requiresCooking ?? menu.requiresCooking,
-    displayOrder: menu.displayOrder,
+    displayOrder: patch.displayOrder ?? menu.displayOrder,
   };
 }

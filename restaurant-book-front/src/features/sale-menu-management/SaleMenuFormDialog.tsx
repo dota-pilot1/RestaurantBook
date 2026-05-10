@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
+import { X } from "lucide-react";
 import { saleMenuApi } from "@/entities/sale-menu/api/saleMenuApi";
 import type { SaleMenu, SaleMenuStatus } from "@/entities/sale-menu/model/types";
 import type { SaleMenuCategory } from "@/entities/sale-menu-category/model/types";
@@ -89,8 +90,18 @@ export function SaleMenuFormDialog({ open, menu, categories, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-background p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
-        <h2 className="mb-4 text-base font-semibold">{isEdit ? "판매 메뉴 수정" : "판매 메뉴 추가"}</h2>
+      <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-background p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h2 className="text-base font-semibold">{isEdit ? "판매 메뉴 수정" : "판매 메뉴 추가"}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="닫기"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
         <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="카테고리" error={errors.categoryId?.message}>
@@ -133,9 +144,6 @@ export function SaleMenuFormDialog({ open, menu, categories, onClose }: Props) {
                   />
                 )}
               />
-            </Field>
-            <Field label="정렬 순서" error={errors.displayOrder?.message}>
-              <input type="number" min={0} {...register("displayOrder", { valueAsNumber: true })} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
             </Field>
           </div>
           <Field label="설명" error={errors.description?.message}>

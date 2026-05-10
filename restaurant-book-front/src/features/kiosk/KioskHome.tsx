@@ -48,6 +48,7 @@ type KioskOrderType = "dine-in" | "takeout";
 type PaymentSelectionMode = "SINGLE" | "BUNDLE";
 
 type KioskTab =
+  | { type: "ALL"; label: string }
   | { type: "SET"; label: string }
   | { type: "MENU"; categoryId: number; label: string };
 
@@ -86,6 +87,7 @@ type CancelNoticeItem = {
 };
 
 const SET_TAB: KioskTab = { type: "SET", label: "세트" };
+const ALL_TAB: KioskTab = { type: "ALL", label: "전체 보기" };
 const CUSTOMER_ORDER_REFETCH_INTERVAL_MS = 20000;
 const TOSS_PAYMENT_META_KEY_PREFIX = "restaurantBook:tossPayment:";
 
@@ -217,6 +219,17 @@ const toCustomerOrderType = (orderType: KioskOrderType): CustomerOrderType =>
 
 const toCartKey = (type: SaleProductType, id: number): CartItemKey => `${type}:${id}`;
 
+const isActiveKioskTab = (activeTab: KioskTab, tab: KioskTab) => {
+  if (activeTab.type !== tab.type) return false;
+  if (tab.type === "MENU") {
+    return activeTab.type === "MENU" && activeTab.categoryId === tab.categoryId;
+  }
+  return true;
+};
+
+const getKioskTabKey = (tab: KioskTab) =>
+  tab.type === "MENU" ? `MENU:${tab.categoryId}` : tab.type;
+
 const getTableBadgeLabel = (tableName: string) => {
   const normalized = tableName.trim();
   if (!normalized) return "-";
@@ -331,12 +344,14 @@ function useKioskOrder() {
         label: category.name,
       })),
       SET_TAB,
+      ALL_TAB,
     ],
     [visibleCategories]
   );
 
   useEffect(() => {
     if (categoriesLoading) return;
+    if (activeTab.type === "ALL") return;
     if (activeTab.type === "SET") return;
     if (visibleCategories.some((category) => category.id === activeTab.categoryId)) return;
     if (visibleCategories.length > 0) {
@@ -350,6 +365,8 @@ function useKioskOrder() {
     () =>
       activeTab.type === "SET"
         ? { orderType: customerOrderType, section: "SET" as const }
+        : activeTab.type === "ALL"
+          ? { orderType: customerOrderType, section: "ALL" as const }
         : {
             orderType: customerOrderType,
             section: "MENU" as const,
@@ -366,6 +383,21 @@ function useKioskOrder() {
     queryKey: ["customer-sale-products", productFilters],
     queryFn: () => customerSaleProductApi.list(productFilters),
   });
+
+  const displayProducts = useMemo(() => {
+    if (activeTab.type !== "ALL") return products;
+
+    const categoryOrderMap = new Map(
+      visibleCategories.map((category, index) => [category.id, index]),
+    );
+    return [...products].sort((a, b) => {
+      const aSectionOrder =
+        a.type === "SALE_MENU_SET" ? 999999 : categoryOrderMap.get(a.category?.id ?? -1) ?? 999998;
+      const bSectionOrder =
+        b.type === "SALE_MENU_SET" ? 999999 : categoryOrderMap.get(b.category?.id ?? -1) ?? 999998;
+      return aSectionOrder - bSectionOrder || a.displayOrder - b.displayOrder || a.id - b.id;
+    });
+  }, [activeTab.type, products, visibleCategories]);
 
   const {
     data: acceptedOrders = [],
@@ -917,7 +949,7 @@ function useKioskOrder() {
     paymentGuideCopy,
     paymentLaunching,
     paymentSelectionMode,
-    products,
+    products: displayProducts,
     requestSubmitOrder,
     requestTossPayment,
     selectPaymentMode,
@@ -1087,14 +1119,11 @@ function KioskDesktopView({ kiosk }: { kiosk: KioskOrderModel }) {
 
           <div className="flex-shrink-0 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {tabs.map((tab) => {
-              const active =
-                activeTab.type === tab.type &&
-                (tab.type === "SET" ||
-                  (activeTab.type === "MENU" && activeTab.categoryId === tab.categoryId));
+              const active = isActiveKioskTab(activeTab, tab);
 
               return (
                 <button
-                  key={tab.type === "SET" ? "SET" : `MENU:${tab.categoryId}`}
+                  key={getKioskTabKey(tab)}
                   type="button"
                   onClick={() => setActiveTab(tab)}
                   className={`h-12 rounded-md border px-3 text-sm font-semibold transition-colors ${
@@ -1122,7 +1151,7 @@ function KioskDesktopView({ kiosk }: { kiosk: KioskOrderModel }) {
                     : "표시할 메뉴가 없습니다."
                 }
               />
-            ) : (
+            ) : activeTab.type !== "ALL" ? (
               <div id="kiosk-menu-list" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {products.map((product) => {
                   const key = toCartKey(product.type, product.id);
@@ -1137,6 +1166,47 @@ function KioskDesktopView({ kiosk }: { kiosk: KioskOrderModel }) {
                     />
                   );
                 })}
+              </div>
+            ) : (
+              <div id="kiosk-menu-list" className="space-y-6">
+                {(() => {
+                  const groups: { label: string; items: typeof products }[] = [];
+                  for (const product of products) {
+                    const label =
+                      product.type === "SALE_MENU_SET"
+                        ? "세트 메뉴"
+                        : (product.category?.name ?? "기타");
+                    const last = groups[groups.length - 1];
+                    if (last && last.label === label) {
+                      last.items.push(product);
+                    } else {
+                      groups.push({ label, items: [product] });
+                    }
+                  }
+                  return groups.map((group) => (
+                    <div key={group.label}>
+                      <div className="mb-3 flex items-center gap-3">
+                        <span className="text-sm font-semibold text-foreground">{group.label}</span>
+                        <div className="flex-1 border-t border-border" />
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {group.items.map((product) => {
+                          const key = toCartKey(product.type, product.id);
+                          return (
+                            <MenuCard
+                              key={key}
+                              product={product}
+                              quantity={cart[key]?.quantity ?? 0}
+                              onMinus={() => updateQuantity(product, -1)}
+                              onPlus={() => updateQuantity(product, 1)}
+                              onToggle={() => toggleProductSelection(product)}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
             )}
           </div>
@@ -1837,14 +1907,11 @@ function KioskMobileView({ kiosk }: { kiosk: KioskOrderModel }) {
 
       <nav className="sticky top-[124px] z-20 flex gap-2 overflow-x-auto border-b border-zinc-200 bg-zinc-50 px-4 py-3">
         {tabs.map((tab) => {
-          const active =
-            activeTab.type === tab.type &&
-            (tab.type === "SET" ||
-              (activeTab.type === "MENU" && activeTab.categoryId === tab.categoryId));
+          const active = isActiveKioskTab(activeTab, tab);
 
           return (
             <button
-              key={tab.type === "SET" ? "SET" : `MENU:${tab.categoryId}`}
+              key={getKioskTabKey(tab)}
               type="button"
               onClick={() => setActiveTab(tab)}
               className={cn(
