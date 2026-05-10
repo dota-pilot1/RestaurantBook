@@ -63,7 +63,6 @@ export function SelectInput({
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>
         <SelectPrimitive.Content
-          forceMount
           position="popper"
           sideOffset={4}
           className={cn(
