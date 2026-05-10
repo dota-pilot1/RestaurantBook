@@ -3,7 +3,19 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { BookOpen, Image as ImageIcon, Info, Settings, Utensils } from "lucide-react";
+import {
+  BookOpen,
+  ExternalLink,
+  Globe,
+  Image as ImageIcon,
+  Info,
+  Mail,
+  MessageSquare,
+  Phone,
+  Settings,
+  Utensils,
+  X,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { siteSettingApi } from "@/entities/site-setting/api/siteSettingApi";
@@ -26,6 +38,7 @@ type AuthLayoutProps = {
 export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
   const { t } = useTranslation("auth");
   const queryClient = useQueryClient();
+  const [issueGuideOpen, setIssueGuideOpen] = useState(false);
   const [settingsPasswordOpen, setSettingsPasswordOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsPassword, setSettingsPassword] = useState("");
@@ -96,7 +109,7 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
               <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
                 <Utensils className="h-4 w-4" />
               </span>
-              RestaurantBook
+              식당 키오스크
             </div>
 
             <div className="relative overflow-hidden rounded-xl border border-border bg-background shadow-sm">
@@ -132,7 +145,16 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
 
           {/* Right page — form */}
           <section className="relative flex h-full items-center justify-center p-6 sm:p-8 lg:px-10">
-            <div className="absolute right-4 top-4 flex items-center gap-2">
+            <div className="absolute left-4 right-4 top-4 flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIssueGuideOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                {t("issueInquiry")}
+                <ExternalLink className="h-3 w-3 text-muted-foreground" />
+              </button>
               <Link
                 href="/about2"
                 className="inline-flex items-center gap-1.5 rounded border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
@@ -168,6 +190,93 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
           </section>
         </div>
       </div>
+      {issueGuideOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="issue-guide-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+        >
+          <div className="w-full max-w-xl rounded-lg border border-border bg-background p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="issue-guide-title" className="text-lg font-black">
+                  {t("issueGuideTitle")}
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  {t("issueGuideDescription")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIssueGuideOpen(false)}
+                aria-label={t("issueGuideClose")}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-md border border-border bg-muted/30 p-4 text-sm leading-6">
+              <p className="font-semibold text-foreground">{t("issueGuideStepTitle")}</p>
+              <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
+                <li>{t("issueGuideStepSignup")}</li>
+                <li>{t("issueGuideStepRegister")}</li>
+              </ol>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <IssueGuideInfoLink
+                icon={Globe}
+                label={t("issueGuideProjectUrlLabel")}
+                value="smart-fnb-design.com"
+                href="https://smart-fnb-design.com/"
+              />
+              <IssueGuideInfoLink
+                icon={Phone}
+                label={t("issueGuidePhoneLabel")}
+                value="010-4903-8056"
+                href="tel:01049038056"
+              />
+              <IssueGuideInfoLink
+                icon={Mail}
+                label={t("issueGuideEmailLabel")}
+                value="terecal@daum.net"
+                href="mailto:terecal@daum.net"
+                className="sm:col-span-2"
+              />
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setIssueGuideOpen(false)}
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent"
+              >
+                {t("issueGuideClose")}
+              </button>
+              <a
+                href="https://hibot-docu.com/"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 text-sm font-semibold hover:bg-accent"
+              >
+                {t("issueGuideSignupLink")}
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+              <a
+                href="https://hibot-docu.com/issues?prototypeId=prototype-943425"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-bold text-primary-foreground hover:opacity-90"
+              >
+                {t("issueGuideIssuesLink")}
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {settingsPasswordOpen ? (
         <div
           role="dialog"
@@ -315,5 +424,34 @@ function HeaderVisibilitySwitch({
         aria-label={`${title} 헤더 네비 출력 여부`}
       />
     </div>
+  );
+}
+
+function IssueGuideInfoLink({
+  icon: Icon,
+  label,
+  value,
+  href,
+  className = "",
+}: {
+  icon: typeof Globe;
+  label: string;
+  value: string;
+  href: string;
+  className?: string;
+}) {
+  return (
+    <a
+      href={href}
+      target={href.startsWith("http") ? "_blank" : undefined}
+      rel={href.startsWith("http") ? "noreferrer" : undefined}
+      className={`flex min-w-0 items-center gap-3 rounded-md border border-border bg-background px-3 py-2.5 text-sm hover:bg-accent ${className}`}
+    >
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0">
+        <span className="block text-xs font-semibold text-muted-foreground">{label}</span>
+        <span className="block truncate font-bold text-foreground">{value}</span>
+      </span>
+    </a>
   );
 }

@@ -69,12 +69,12 @@ export function TestLoginButtons({
   };
 
   return (
-    <section className="rounded-md border border-dashed border-border bg-muted/30 p-3">
-      <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+    <section className="rounded-md border border-dashed border-border bg-muted/30 p-4">
+      <div className="mb-3 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <LogIn className="h-3.5 w-3.5" />
         {t("testAccounts")}
       </div>
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {TEST_ACCOUNTS.map((account) => {
           const roleLabel = t(`roles.${account.roleCode}`, {
             ns: "nav",
@@ -86,7 +86,7 @@ export function TestLoginButtons({
               type="button"
               disabled={!!pendingEmail}
               onClick={() => handleLogin(account)}
-              className={`h-8 min-w-0 rounded-md border px-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
+              className={`h-11 min-w-0 rounded-md border px-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${
                 ROLE_BUTTON_STYLES[account.roleCode] ?? "border-border bg-background text-foreground"
               }`}
               title={account.email}

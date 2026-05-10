@@ -922,7 +922,7 @@ export function Header() {
             href="/"
             className="mr-2 text-sm font-semibold tracking-tight hover:opacity-80 transition-opacity"
           >
-            RestaurantBook
+            식당 키오스크
           </Link>
           {status === "authenticated" &&
             navTree.map((item) => <NavItem key={item.id} item={item} />)}

@@ -8,7 +8,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as Popover from "@radix-ui/react-popover";
-import { AlertCircle, LayoutGrid, LogIn, X } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronDown,
+  LayoutGrid,
+  LogIn,
+  X,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { loginSchema, type LoginFormValues } from "@/shared/lib/validation/auth.schema";
 import { authActions } from "@/entities/user/model/authStore";
@@ -34,6 +40,9 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const [tableName, setTableName] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [tablePopoverOpen, setTablePopoverOpen] = useState(false);
+  const [loginFormOpen, setLoginFormOpen] = useState(Boolean(nextPath));
+  const [selectedRoleCode, setSelectedRoleCode] = useState<string | null>(null);
+  const tableSelectVisible = selectedRoleCode === "ROLE_CUSTOMER";
 
   const { data: tables = [] } = useQuery({
     queryKey: ["restaurant-tables-active"],
@@ -80,8 +89,9 @@ export function LoginForm({ nextPath }: LoginFormProps) {
     try {
       const user = await authActions.login(values.email, values.password);
       if (user.role.code === "ROLE_CUSTOMER" && !tableName.trim()) {
+        setSelectedRoleCode("ROLE_CUSTOMER");
         setTablePopoverOpen(true);
-        focusTableSelect();
+        window.setTimeout(focusTableSelect, 0);
         return;
       }
       tableSessionStorage.setTableName(tableName);
@@ -101,72 +111,10 @@ export function LoginForm({ nextPath }: LoginFormProps) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
-      <FormField
-        label={t("tableSelect")}
-        htmlFor="login-table-name"
-        hint={t("tableSelectHint")}
-      >
-        {tables.length > 0 ? (
-          <div id="login-table-select" className="flex items-center gap-2">
-            <Popover.Root open={tablePopoverOpen} onOpenChange={setTablePopoverOpen}>
-              <Popover.Anchor asChild>
-                <div className="flex-1">
-                  <SelectInput
-                    value={tableName}
-                    onValueChange={(v) => { setTableName(v); setTablePopoverOpen(false); }}
-                    placeholder={t("tableSelectPlaceholder")}
-                    options={tables.map((t) => ({ value: t.name, label: t.name }))}
-                    invalid={tablePopoverOpen}
-                  />
-                </div>
-              </Popover.Anchor>
-              <Popover.Portal>
-                <Popover.Content
-                  side="top"
-                  align="start"
-                  sideOffset={6}
-                  className="z-50 flex items-center gap-2 rounded-md border border-destructive/50 bg-white px-3 py-2 text-sm text-destructive shadow-lg animate-in fade-in-0 zoom-in-95"
-                >
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  <span>{t("tableRequiredForCustomer")}</span>
-                  <Popover.Close className="ml-1 rounded p-0.5 hover:bg-destructive/20">
-                    <X className="h-3.5 w-3.5" />
-                  </Popover.Close>
-                  <Popover.Arrow className="fill-destructive/20" />
-                </Popover.Content>
-              </Popover.Portal>
-            </Popover.Root>
-            <button
-              type="button"
-              onClick={() => setPickerOpen(true)}
-              aria-label={t("openTablePicker")}
-              title={t("openTablePicker")}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-          </div>
-        ) : (
-          <TextInput
-            id="login-table-name"
-            autoComplete="off"
-            placeholder={t("tableSelectFallbackPlaceholder")}
-            value={tableName}
-            onChange={(event) => setTableName(event.target.value)}
-          />
-        )}
-      </FormField>
-
-      <TablePickerDialog
-        open={pickerOpen}
-        currentTableName={tableName}
-        onSelect={setTableName}
-        onClose={() => setPickerOpen(false)}
-      />
-
       <TestLoginButtons
         nextPath={nextPath}
         onAccountSelected={(account) => {
+          setSelectedRoleCode(account.roleCode);
           setValue("email", account.email, { shouldValidate: true, shouldDirty: true });
           setValue("password", account.password, { shouldValidate: true, shouldDirty: true });
           clearErrors(["email", "password"]);
@@ -174,10 +122,76 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         onError={setFormError}
         onTableRequired={() => {
           setTablePopoverOpen(true);
-          focusTableSelect();
+          window.setTimeout(focusTableSelect, 0);
         }}
         tableName={tableName}
       />
+
+      {tableSelectVisible ? (
+        <>
+          <FormField
+            label={t("tableSelect")}
+            htmlFor="login-table-name"
+          >
+            {tables.length > 0 ? (
+              <div id="login-table-select" className="flex items-center gap-2">
+                <Popover.Root open={tablePopoverOpen} onOpenChange={setTablePopoverOpen}>
+                  <Popover.Anchor asChild>
+                    <div className="flex-1">
+                      <SelectInput
+                        value={tableName}
+                        onValueChange={(v) => { setTableName(v); setTablePopoverOpen(false); }}
+                        placeholder={t("tableSelectPlaceholder")}
+                        options={tables.map((t) => ({ value: t.name, label: t.name }))}
+                        invalid={tablePopoverOpen}
+                      />
+                    </div>
+                  </Popover.Anchor>
+                  <Popover.Portal>
+                    <Popover.Content
+                      side="top"
+                      align="start"
+                      sideOffset={6}
+                      className="z-50 flex items-center gap-2 rounded-md border border-destructive/50 bg-white px-3 py-2 text-sm text-destructive shadow-lg animate-in fade-in-0 zoom-in-95"
+                    >
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span>{t("tableRequiredForCustomer")}</span>
+                      <Popover.Close className="ml-1 rounded p-0.5 hover:bg-destructive/20">
+                        <X className="h-3.5 w-3.5" />
+                      </Popover.Close>
+                      <Popover.Arrow className="fill-destructive/20" />
+                    </Popover.Content>
+                  </Popover.Portal>
+                </Popover.Root>
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(true)}
+                  aria-label={t("openTablePicker")}
+                  title={t("openTablePicker")}
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <TextInput
+                id="login-table-name"
+                autoComplete="off"
+                placeholder={t("tableSelectFallbackPlaceholder")}
+                value={tableName}
+                onChange={(event) => setTableName(event.target.value)}
+              />
+            )}
+          </FormField>
+
+          <TablePickerDialog
+            open={pickerOpen}
+            currentTableName={tableName}
+            onSelect={setTableName}
+            onClose={() => setPickerOpen(false)}
+          />
+        </>
+      ) : null}
 
       {formError && (
         <div
@@ -189,44 +203,75 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         </div>
       )}
 
-      <FormField label={t("email")} htmlFor="login-email" error={errors.email?.message}>
-        <TextInput
-          id="login-email"
-          type="email"
-          autoComplete="email"
-          placeholder={t("emailPlaceholder")}
-          invalid={!!errors.email}
-          aria-invalid={!!errors.email}
-          {...register("email")}
-        />
-      </FormField>
-
-      <FormField label={t("password")} htmlFor="login-password" error={errors.password?.message}>
-        <PasswordInput
-          id="login-password"
-          autoComplete="current-password"
-          placeholder="••••••••"
-          invalid={!!errors.password}
-          aria-invalid={!!errors.password}
-          {...register("password")}
-        />
-      </FormField>
-
       <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-primary text-primary-foreground py-2.5 text-sm font-medium disabled:opacity-60 hover:opacity-90 transition-opacity"
+        type="button"
+        aria-expanded={loginFormOpen}
+        onClick={() => setLoginFormOpen((open) => !open)}
+        className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-muted/25 px-4 py-3 text-left transition-colors hover:bg-accent"
       >
-        <LogIn className="h-4 w-4" />
-        {isSubmitting ? t("signingIn") : t("signInButton")}
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <LogIn className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-bold text-foreground">
+              {t("collapsedLoginTitle")}
+            </span>
+            <span className="block text-xs leading-5 text-muted-foreground">
+              {t("collapsedLoginHint")}
+            </span>
+          </span>
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+            loginFormOpen ? "rotate-180" : ""
+          }`}
+        />
       </button>
 
-      <p className="text-center text-sm text-muted-foreground">
-        {t("noAccount")}{" "}
-        <Link href="/register" className="underline hover:text-foreground">
-          {t("signUpLink")}
-        </Link>
-      </p>
+      {loginFormOpen ? (
+        <div className="space-y-4 rounded-lg border border-border bg-background p-4">
+          <FormField label={t("email")} htmlFor="login-email" error={errors.email?.message}>
+            <TextInput
+              id="login-email"
+              type="email"
+              autoComplete="email"
+              placeholder={t("emailPlaceholder")}
+              invalid={!!errors.email}
+              aria-invalid={!!errors.email}
+              {...register("email")}
+            />
+          </FormField>
+
+          <FormField label={t("password")} htmlFor="login-password" error={errors.password?.message}>
+            <PasswordInput
+              id="login-password"
+              autoComplete="current-password"
+              placeholder="••••••••"
+              invalid={!!errors.password}
+              aria-invalid={!!errors.password}
+              {...register("password")}
+            />
+          </FormField>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-primary text-primary-foreground py-2.5 text-sm font-medium disabled:opacity-60 hover:opacity-90 transition-opacity"
+          >
+            <LogIn className="h-4 w-4" />
+            {isSubmitting ? t("signingIn") : t("signInButton")}
+          </button>
+
+          <p className="text-center text-sm text-muted-foreground">
+            {t("noAccount")}{" "}
+            <Link href="/register" className="underline hover:text-foreground">
+              {t("signUpLink")}
+            </Link>
+          </p>
+        </div>
+      ) : null}
+
     </form>
   );
 }
