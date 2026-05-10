@@ -98,6 +98,41 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
   return (
     <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-muted/20 px-4 py-10 sm:py-14">
       <div className="relative w-full max-w-7xl">
+        <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setIssueGuideOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent"
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            {t("issueInquiry")}
+            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+          </button>
+          <Link
+            href="/about2"
+            className="inline-flex items-center gap-1.5 rounded border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            사용 가이드
+          </Link>
+          <Link
+            href="/about"
+            className="inline-flex items-center gap-1.5 rounded border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent"
+          >
+            <Info className="h-3.5 w-3.5" />
+            {t("serviceIntro")}
+          </Link>
+          <button
+            type="button"
+            aria-label="화면 헤더 설정"
+            title="화면 헤더 설정"
+            onClick={openSettingsPasswordDialog}
+            className="inline-flex items-center gap-1.5 rounded border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent"
+          >
+            <Settings className="h-3.5 w-3.5" />
+            헤더 설정
+          </button>
+        </div>
         <div className="relative grid items-stretch overflow-hidden rounded-2xl border border-border bg-background shadow-[0_24px_70px_-18px_rgba(0,0,0,0.22)] ring-1 ring-black/5 lg:min-h-[680px] lg:grid-cols-[5fr_4fr]">
           <span
             aria-hidden
@@ -144,42 +179,7 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
           </section>
 
           {/* Right page — form */}
-          <section className="relative flex h-full items-center justify-center p-6 sm:p-8 lg:px-10">
-            <div className="absolute left-4 right-4 top-4 flex flex-wrap items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIssueGuideOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-              >
-                <MessageSquare className="h-3.5 w-3.5" />
-                {t("issueInquiry")}
-                <ExternalLink className="h-3 w-3 text-muted-foreground" />
-              </button>
-              <Link
-                href="/about2"
-                className="inline-flex items-center gap-1.5 rounded border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-                사용 가이드
-              </Link>
-              <Link
-                href="/about"
-                className="inline-flex items-center gap-1.5 rounded border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-              >
-                <Info className="h-3.5 w-3.5" />
-                {t("serviceIntro")}
-              </Link>
-              <button
-                type="button"
-                aria-label="화면 헤더 설정"
-                title="화면 헤더 설정"
-                onClick={openSettingsPasswordDialog}
-                className="inline-flex items-center gap-1.5 rounded border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-              >
-                <Settings className="h-3.5 w-3.5" />
-                헤더 설정
-              </button>
-            </div>
+          <section className="relative flex h-full items-start justify-center p-6 sm:p-8 lg:px-10">
             <div className="w-full max-w-lg space-y-5">
               <div className="space-y-1.5 text-center lg:text-left">
                 <h1 className="text-xl font-bold tracking-tight">{title}</h1>

@@ -11,8 +11,13 @@ import * as Popover from "@radix-ui/react-popover";
 import {
   AlertCircle,
   ChevronDown,
+  ExternalLink,
+  Globe,
   LayoutGrid,
   LogIn,
+  Mail,
+  MessageSquare,
+  Phone,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -272,6 +277,93 @@ export function LoginForm({ nextPath }: LoginFormProps) {
         </div>
       ) : null}
 
+      <section className="border-t border-border pt-4">
+        <div className="rounded-lg border border-border bg-muted/20 p-4">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <MessageSquare className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="text-sm font-black text-foreground">{t("issueGuideTitle")}</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {t("issueGuideDescription")}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <SupportInfoLink
+              icon={Globe}
+              label={t("issueGuideProjectUrlLabel")}
+              value="smart-fnb-design.com"
+              href="https://smart-fnb-design.com/"
+            />
+            <SupportInfoLink
+              icon={Phone}
+              label={t("issueGuidePhoneLabel")}
+              value="010-4903-8056"
+              href="tel:01049038056"
+            />
+            <SupportInfoLink
+              icon={Mail}
+              label={t("issueGuideEmailLabel")}
+              value="terecal@daum.net"
+              href="mailto:terecal@daum.net"
+              className="sm:col-span-2"
+            />
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <a
+              href="https://hibot-docu.com/"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-semibold hover:bg-accent"
+            >
+              {t("issueGuideSignupLink")}
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+            <a
+              href="https://hibot-docu.com/issues?prototypeId=prototype-943425"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-sm font-bold text-primary-foreground hover:opacity-90"
+            >
+              {t("issueGuideIssuesLink")}
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </div>
+        </div>
+      </section>
     </form>
+  );
+}
+
+function SupportInfoLink({
+  icon: Icon,
+  label,
+  value,
+  href,
+  className = "",
+}: {
+  icon: typeof Globe;
+  label: string;
+  value: string;
+  href: string;
+  className?: string;
+}) {
+  return (
+    <a
+      href={href}
+      target={href.startsWith("http") ? "_blank" : undefined}
+      rel={href.startsWith("http") ? "noreferrer" : undefined}
+      className={`flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-accent ${className}`}
+    >
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0">
+        <span className="block text-xs font-semibold text-muted-foreground">{label}</span>
+        <span className="block truncate font-bold text-foreground">{value}</span>
+      </span>
+    </a>
   );
 }
