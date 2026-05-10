@@ -39,6 +39,7 @@ export function SelectInput({
 }: SelectInputProps) {
   const hasEmptyOption = options.some((option) => option.value === "");
   const radixValue = value === "" && !hasEmptyOption ? "" : toRadixValue(value);
+  const selectedOption = options.find((o) => toRadixValue(o.value) === radixValue);
 
   return (
     <SelectPrimitive.Root
@@ -56,7 +57,9 @@ export function SelectInput({
           className,
         )}
       >
-        <SelectPrimitive.Value placeholder={placeholder} />
+        <SelectPrimitive.Value placeholder={placeholder}>
+          {selectedOption?.label}
+        </SelectPrimitive.Value>
         <SelectPrimitive.Icon asChild>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
         </SelectPrimitive.Icon>
