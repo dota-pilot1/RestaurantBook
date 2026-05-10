@@ -215,12 +215,15 @@ export function SaleMenuManagement() {
         onQuickUpdate={(menu, patch) => updateMutation.mutate({ menu, patch })}
       />
 
-      <SaleMenuFormDialog
-        open={formTarget !== null}
-        menu={formTarget === "new" ? null : formTarget}
-        categories={categories}
-        onClose={() => setFormTarget(null)}
-      />
+      {formTarget !== null && (
+        <SaleMenuFormDialog
+          key={formTarget === "new" ? "new" : formTarget.id}
+          open={true}
+          menu={formTarget === "new" ? null : formTarget}
+          categories={categories}
+          onClose={() => setFormTarget(null)}
+        />
+      )}
 
       <ConfirmDialog
         open={!!deleteTarget}
@@ -356,8 +359,11 @@ function BulkActionBar({
 }
 
 function toUpdateBody(menu: SaleMenu, patch: Partial<SaleMenu>) {
+  if (!menu.category) {
+    throw new Error("categoryId is required");
+  }
   return {
-    categoryId: menu.category?.id ?? null,
+    categoryId: menu.category.id,
     name: menu.name,
     description: menu.description,
     price: menu.price,

@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm, useWatch } from "react-hook-form";
@@ -14,7 +13,7 @@ import { Switch } from "@/shared/ui/Switch";
 import { SaleMenuImageField } from "./SaleMenuImageField";
 
 const schema = z.object({
-  categoryId: z.number().nullable(),
+  categoryId: z.number().min(1, "카테고리를 선택해주세요."),
   name: z.string().min(1, "메뉴명을 입력해주세요.").max(100),
   description: z.string().max(500).optional(),
   price: z.number().min(0, "0 이상으로 입력해주세요."),
@@ -39,20 +38,10 @@ type Props = {
 export function SaleMenuFormDialog({ open, menu, categories, onClose }: Props) {
   const isEdit = !!menu;
   const qc = useQueryClient();
-  const { register, control, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<FormValues>({
+  const { register, control, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: defaultValues(),
-  });
-  const imageUrl = useWatch({ control, name: "imageUrl" });
-  const visible = useWatch({ control, name: "visible" });
-  const availableDineIn = useWatch({ control, name: "availableDineIn" });
-  const availableTakeout = useWatch({ control, name: "availableTakeout" });
-  const requiresCooking = useWatch({ control, name: "requiresCooking" });
-
-  useEffect(() => {
-    if (!open) return;
-    reset(menu ? {
-      categoryId: menu.category?.id ?? null,
+    defaultValues: menu ? {
+      categoryId: menu.category?.id ?? 0,
       name: menu.name,
       description: menu.description ?? "",
       price: menu.price,
@@ -63,8 +52,13 @@ export function SaleMenuFormDialog({ open, menu, categories, onClose }: Props) {
       availableTakeout: menu.availableTakeout,
       requiresCooking: menu.requiresCooking,
       displayOrder: menu.displayOrder,
-    } : defaultValues());
-  }, [open, menu, reset]);
+    } : defaultValues(),
+  });
+  const imageUrl = useWatch({ control, name: "imageUrl" });
+  const visible = useWatch({ control, name: "visible" });
+  const availableDineIn = useWatch({ control, name: "availableDineIn" });
+  const availableTakeout = useWatch({ control, name: "availableTakeout" });
+  const requiresCooking = useWatch({ control, name: "requiresCooking" });
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
@@ -105,12 +99,10 @@ export function SaleMenuFormDialog({ open, menu, categories, onClose }: Props) {
                 name="categoryId"
                 render={({ field }) => (
                   <SelectInput
-                    value={field.value?.toString() ?? ""}
-                    onValueChange={(value) => field.onChange(value ? Number(value) : null)}
-                    options={[
-                      { value: "", label: "카테고리 없음" },
-                      ...categories.map((category) => ({ value: category.id.toString(), label: category.name })),
-                    ]}
+                    value={field.value ? field.value.toString() : ""}
+                    onValueChange={(value) => field.onChange(Number(value))}
+                    options={categories.map((category) => ({ value: category.id.toString(), label: category.name }))}
+                    placeholder="카테고리 선택"
                     invalid={!!errors.categoryId}
                     aria-label="카테고리"
                   />
@@ -172,7 +164,7 @@ export function SaleMenuFormDialog({ open, menu, categories, onClose }: Props) {
 
 function defaultValues(): FormValues {
   return {
-    categoryId: null,
+    categoryId: 0,
     name: "",
     description: "",
     price: 0,
