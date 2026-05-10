@@ -56,6 +56,8 @@ export type Order = {
   cancelMessage: string | null;
   kitchenCancelConfirmedAt: string | null;
   kitchenCancelDismissedAt: string | null;
+  paymentMethod: PaymentMethod | null;
+  paymentProviderMethod: string | null;
   items: OrderItem[];
   createdAt: string;
   updatedAt: string;

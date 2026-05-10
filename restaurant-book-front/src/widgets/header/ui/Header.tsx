@@ -868,6 +868,52 @@ export function Header() {
     return null;
   }
 
+  if (pathname.startsWith("/customer")) {
+    return (
+      <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm">
+        <div className="flex h-12 w-full items-center justify-between gap-2 px-3">
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            aria-label="테이블 변경"
+            title="테이블 변경"
+            className="inline-flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm font-bold text-foreground transition-colors hover:bg-accent"
+          >
+            <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="truncate">{tableName || "테이블 선택"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            aria-label="전체 테이블 목록에서 선택"
+            title="전체 테이블 목록에서 선택"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </button>
+          {status === "authenticated" ? (
+            user && <UserDropdown displayName={displayName} user={user} onLogout={handleLogout} />
+          ) : status === "anonymous" ? (
+            <Link
+              href="/login"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              <LogIn className="h-4 w-4" />
+              로그인
+            </Link>
+          ) : null}
+        </div>
+        <TablePickerDialog
+          open={pickerOpen}
+          currentTableName={tableName}
+          canManageTables={canManageTables}
+          onSelect={handleTablePick}
+          onClose={() => setPickerOpen(false)}
+        />
+      </header>
+    );
+  }
+
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-sm">
       <div className="flex h-14 w-full items-center justify-between px-4">

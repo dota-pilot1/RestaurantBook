@@ -2,8 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
+  CreditCard,
   XCircle,
   ImageIcon,
   Minus,
@@ -11,7 +16,6 @@ import {
   Phone,
   Plus,
   ReceiptText,
-  Settings,
   ShoppingBag,
   Store,
 } from "lucide-react";
@@ -24,13 +28,16 @@ import type {
 import { orderApi } from "@/entities/order/api/orderApi";
 import { useCustomerOrdersWebSocket } from "@/entities/order/api/orderRealtime";
 import type { Order } from "@/entities/order/model/types";
+import { customerPaymentApi } from "@/entities/payment/api/customerPaymentApi";
 import { saleMenuCategoryApi } from "@/entities/sale-menu-category/api/saleMenuCategoryApi";
 import { siteSettingApi } from "@/entities/site-setting/api/siteSettingApi";
 import { staffCallApi } from "@/entities/staff-call/api/staffCallApi";
 import { useCustomerStaffCallsWebSocket } from "@/entities/staff-call/api/staffCallRealtime";
 import type { StaffCall, StaffCallType } from "@/entities/staff-call/model/types";
+import { useAuth } from "@/entities/user/model/authStore";
 import { toast, toastError } from "@/shared/lib/toast";
 import { tableSessionStorage } from "@/shared/lib/tableSessionStorage";
+import { loadTossPayments } from "@/shared/lib/tossPayments";
 import { cn } from "@/shared/lib/utils";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { NoticeDialog } from "@/shared/ui/NoticeDialog";
@@ -38,6 +45,7 @@ import { PasswordInput } from "@/shared/ui/PasswordInput";
 import { Switch } from "@/shared/ui/Switch";
 
 type KioskOrderType = "dine-in" | "takeout";
+type PaymentSelectionMode = "SINGLE" | "BUNDLE";
 
 type KioskTab =
   | { type: "SET"; label: string }
@@ -79,6 +87,7 @@ type CancelNoticeItem = {
 
 const SET_TAB: KioskTab = { type: "SET", label: "세트" };
 const CUSTOMER_ORDER_REFETCH_INTERVAL_MS = 20000;
+const TOSS_PAYMENT_META_KEY_PREFIX = "restaurantBook:tossPayment:";
 
 const formatPrice = (value: number) => value.toLocaleString("ko-KR");
 
@@ -169,6 +178,32 @@ const orderStatusCardClass: Record<Order["status"], string> = {
   CANCELED: "border-red-300 bg-background shadow-[inset_4px_0_0_rgb(239_68_68)]",
 };
 
+const getPaymentGuideCopy = (roleCode?: string | null) => {
+  switch (roleCode) {
+    case "ROLE_ADMIN":
+    case "ROLE_MANAGER":
+      return {
+        title: "매출 집계 안내",
+        description: "매출 통계는 결제 완료와 환불 기록을 기준으로 집계됩니다.",
+      };
+    case "ROLE_STAFF":
+      return {
+        title: "직원 결제 안내",
+        description: "고객 간편결제는 자동 반영되고, 카드/현금/기타 결제는 직원이 직접 처리합니다.",
+      };
+    case "ROLE_KITCHEN":
+      return {
+        title: "조리 완료 안내",
+        description: "주방은 조리 완료까지만 처리하고, 결제는 고객 또는 직원 화면에서 진행됩니다.",
+      };
+    default:
+      return {
+        title: "후불 결제 안내",
+        description: "조리 완료된 주문은 결제 버튼으로 후불 결제할 수 있습니다. 선불 결제가 필요하면 직원에게 미리 말씀해주세요.",
+      };
+  }
+};
+
 const staffCallTypeLabel: Record<StaffCallType, string> = {
   GENERAL: "일반 호출",
   REFILL: "물/반찬 리필",
@@ -202,8 +237,9 @@ function OrderStatusBadge({ status }: { status: Order["status"] }) {
   );
 }
 
-export function KioskHome() {
+function useKioskOrder() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [orderType, setOrderType] = useState<KioskOrderType>("dine-in");
   const [activeTab, setActiveTab] = useState<KioskTab>({ type: "MENU", categoryId: -1, label: "" });
   const [cart, setCart] = useState<Record<CartItemKey, CartItem>>({});
@@ -215,6 +251,10 @@ export function KioskHome() {
   const [orderConfirmOpen, setOrderConfirmOpen] = useState(false);
   const [tableName, setTableName] = useState("");
   const [staffCallDialogOpen, setStaffCallDialogOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentSelectionMode, setPaymentSelectionMode] = useState<PaymentSelectionMode | null>(null);
+  const [selectedPaymentOrderIds, setSelectedPaymentOrderIds] = useState<Set<number>>(new Set());
+  const [paymentLaunching, setPaymentLaunching] = useState(false);
   const [staffCallType, setStaffCallType] = useState<StaffCallType>("GENERAL");
   const [staffCallMessage, setStaffCallMessage] = useState("");
   const [basicRequestSelected, setBasicRequestSelected] = useState<Set<string>>(new Set());
@@ -355,6 +395,13 @@ export function KioskHome() {
     refetchInterval: 20000,
   });
 
+  const tossPaymentConfigQuery = useQuery({
+    queryKey: ["customer-toss-payment-config"],
+    queryFn: () => customerPaymentApi.getTossPaymentConfig(),
+    staleTime: 1000 * 60 * 10,
+    retry: false,
+  });
+
   const {
     data: siteSetting,
   } = useQuery({
@@ -411,6 +458,14 @@ export function KioskHome() {
     () => acceptedOrders.filter((order) => order.status !== "CANCELED"),
     [acceptedOrders]
   );
+  const payableOrders = useMemo(
+    () => acceptedOrders.filter((order) => order.status === "READY"),
+    [acceptedOrders]
+  );
+  const selectedPaymentOrders = useMemo(
+    () => payableOrders.filter((order) => selectedPaymentOrderIds.has(order.id)),
+    [payableOrders, selectedPaymentOrderIds]
+  );
 
   const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = cartItems.reduce(
@@ -426,8 +481,29 @@ export function KioskHome() {
     (sum, order) => sum + order.totalAmount,
     0
   );
+  const selectedPaymentTotalPrice = selectedPaymentOrders.reduce(
+    (sum, order) => sum + order.totalAmount,
+    0
+  );
   const displayQuantity = acceptedQuantity + totalQuantity;
   const displayTotalPrice = acceptedTotalPrice + totalPrice;
+  const paymentGuideCopy = getPaymentGuideCopy(user?.role.code);
+
+  useEffect(() => {
+    if (!paymentDialogOpen) return;
+    const payableIds = new Set(payableOrders.map((order) => order.id));
+    setSelectedPaymentOrderIds((current) => {
+      const next = new Set([...current].filter((orderId) => payableIds.has(orderId)));
+      if (next.size === 0 && payableOrders.length > 0) {
+        if (paymentSelectionMode === "SINGLE") {
+          next.add(payableOrders[0].id);
+        } else if (paymentSelectionMode === "BUNDLE") {
+          payableOrders.forEach((order) => next.add(order.id));
+        }
+      }
+      return next;
+    });
+  }, [payableOrders, paymentDialogOpen, paymentSelectionMode]);
 
   const orderTypeLabel = useMemo(
     () => (orderType === "dine-in" ? "매장 식사" : "포장 주문"),
@@ -535,10 +611,10 @@ export function KioskHome() {
       setSettingsPassword("");
       setSettingsPasswordError("");
       setSettingsOpen(false);
-      toast.success("키오스크 설정을 저장했습니다.");
+      toast.success("로그인바 설정을 저장했습니다.");
     },
     onError: (e) => {
-      toastError(e, "키오스크 설정을 저장하지 못했습니다.");
+      toastError(e, "로그인바 설정을 저장하지 못했습니다.");
     },
   });
 
@@ -584,6 +660,121 @@ export function KioskHome() {
       return;
     }
     setStaffCallDialogOpen(true);
+  };
+
+  const openPaymentDialog = () => {
+    if (!tableName.trim()) {
+      toast.error("테이블명이 설정되어야 결제할 수 있습니다.");
+      return;
+    }
+    if (cartItems.length > 0) {
+      toast.error("선택한 메뉴를 먼저 주문 접수해주세요.");
+      return;
+    }
+    if (payableOrders.length === 0) {
+      toast.error("현재 결제 완료 대기 주문이 없습니다.");
+      return;
+    }
+    setPaymentSelectionMode(null);
+    setSelectedPaymentOrderIds(new Set());
+    setPaymentDialogOpen(true);
+  };
+
+  const selectPaymentMode = (mode: PaymentSelectionMode) => {
+    setPaymentSelectionMode(mode);
+    if (mode === "SINGLE") {
+      setSelectedPaymentOrderIds(new Set(payableOrders[0] ? [payableOrders[0].id] : []));
+      return;
+    }
+    setSelectedPaymentOrderIds(new Set(payableOrders.map((order) => order.id)));
+  };
+
+  const togglePaymentOrder = (orderId: number) => {
+    if (paymentSelectionMode === "SINGLE") {
+      setSelectedPaymentOrderIds((current) => {
+        if (current.has(orderId)) {
+          return new Set();
+        }
+        return new Set([orderId]);
+      });
+      return;
+    }
+    setSelectedPaymentOrderIds((current) => {
+      const next = new Set(current);
+      if (next.has(orderId)) {
+        next.delete(orderId);
+      } else {
+        next.add(orderId);
+      }
+      return next;
+    });
+  };
+
+  const closePaymentDialog = () => {
+    if (paymentLaunching) return;
+    if (paymentSelectionMode) {
+      setPaymentSelectionMode(null);
+      setSelectedPaymentOrderIds(new Set());
+      return;
+    }
+    setPaymentDialogOpen(false);
+  };
+
+  const requestTossPayment = async () => {
+    if (paymentLaunching) return;
+    if (cartItems.length > 0) {
+      toast.error("선택한 메뉴를 먼저 주문 접수해주세요.");
+      return;
+    }
+    const paymentConfig =
+      tossPaymentConfigQuery.data ?? (await tossPaymentConfigQuery.refetch()).data;
+    if (!paymentConfig?.clientKey) {
+      toast.error("토스 결제 설정이 필요합니다. 서버 환경변수를 확인해주세요.");
+      return;
+    }
+    if (selectedPaymentOrders.length === 0 || selectedPaymentTotalPrice <= 0) {
+      toast.error("결제할 주문을 선택해주세요.");
+      return;
+    }
+
+    setPaymentLaunching(true);
+    try {
+      const tossOrderId = `rb-${selectedPaymentOrders[0].id}-${Date.now()}`;
+      const selectedOrderIds = selectedPaymentOrders.map((order) => order.id);
+      const callbackParams = new URLSearchParams({
+        tableName,
+        restaurantOrderIds: selectedOrderIds.join(","),
+      });
+      const successUrl = `${window.location.origin}/customer/payment/success?${callbackParams.toString()}`;
+      const failUrl = `${window.location.origin}/customer/payment/fail?${callbackParams.toString()}`;
+
+      window.localStorage.setItem(
+        `${TOSS_PAYMENT_META_KEY_PREFIX}${tossOrderId}`,
+        JSON.stringify({
+          tableName,
+          restaurantOrderIds: selectedOrderIds,
+          amount: selectedPaymentTotalPrice,
+        }),
+      );
+
+      const tossPayments = await loadTossPayments(paymentConfig.clientKey);
+      const payment = tossPayments.payment({ customerKey: "ANONYMOUS" });
+      await payment.requestPayment({
+        method: "CARD",
+        amount: { value: selectedPaymentTotalPrice, currency: "KRW" },
+        orderId: tossOrderId,
+        orderName:
+          selectedPaymentOrders.length === 1
+            ? `${selectedPaymentOrders[0].orderNo} 결제`
+            : `${tableName} 주문 ${selectedPaymentOrders.length}건 결제`,
+        successUrl,
+        failUrl,
+      });
+      setPaymentLaunching(false);
+    } catch (e) {
+      toastError(e, "토스 결제창을 열지 못했습니다.");
+      setPaymentLaunching(false);
+    }
   };
 
   const openSettingsPasswordDialog = () => {
@@ -690,10 +881,179 @@ export function KioskHome() {
   const isLoading = categoriesLoading || productsLoading;
   const isError = categoriesError || productsError;
 
+  return {
+    activeOrdersLoading,
+    activeStaffCalls,
+    activeTab,
+    acceptedOrders,
+    acknowledgeCanceledOrdersMutation,
+    acknowledgeVisibleCancelNotices,
+    basicRequestSelected,
+    billableOrders,
+    cancelNoticesOpen,
+    cancelOrderMutation,
+    cancelStaffCallMutation,
+    canceledOrder,
+    cart,
+    cartItems,
+    closePaymentDialog,
+    completedOrder,
+    confirmSettingsPassword,
+    createOrderMutation,
+    createStaffCallMutation,
+    displayQuantity,
+    displayTotalPrice,
+    draftHeaderNavVisible,
+    isError,
+    isLoading,
+    openPaymentDialog,
+    openSettingsPasswordDialog,
+    openStaffCallDialog,
+    orderConfirmOpen,
+    orderType,
+    orderTypeLabel,
+    payableOrders,
+    paymentDialogOpen,
+    paymentGuideCopy,
+    paymentLaunching,
+    paymentSelectionMode,
+    products,
+    requestSubmitOrder,
+    requestTossPayment,
+    selectPaymentMode,
+    selectedPaymentOrderIds,
+    selectedPaymentOrders,
+    selectedPaymentTotalPrice,
+    setActiveTab,
+    setBasicRequestSelected,
+    setCancelNoticesOpen,
+    setCanceledOrder,
+    setCompletedOrder,
+    setDraftHeaderNavVisible,
+    setOrderConfirmOpen,
+    setOrderType,
+    setSettingsOpen,
+    setSettingsPassword,
+    setSettingsPasswordError,
+    setSettingsPasswordOpen,
+    setStaffCallDialogOpen,
+    setStaffCallMessage,
+    setStaffCallType,
+    settingsOpen,
+    settingsPassword,
+    settingsPasswordError,
+    settingsPasswordOpen,
+    staffCallDialogOpen,
+    staffCallMessage,
+    staffCallType,
+    submitOrder,
+    tableName,
+    tabs,
+    togglePaymentOrder,
+    toggleProductSelection,
+    totalPrice,
+    totalQuantity,
+    updateCartItemQuantity,
+    updateKioskHeaderNavMutation,
+    updateQuantity,
+    visibleCancelNotices,
+  };
+}
+
+type KioskOrderModel = ReturnType<typeof useKioskOrder>;
+
+export function KioskHome({ variant = "desktop" }: { variant?: "desktop" | "mobile" }) {
+  const kiosk = useKioskOrder();
+
+  if (variant === "mobile") {
+    return <KioskMobileView kiosk={kiosk} />;
+  }
+
+  return <KioskDesktopView kiosk={kiosk} />;
+}
+
+function KioskDesktopView({ kiosk }: { kiosk: KioskOrderModel }) {
+  const {
+    activeOrdersLoading,
+    activeStaffCalls,
+    activeTab,
+    acceptedOrders,
+    acknowledgeCanceledOrdersMutation,
+    acknowledgeVisibleCancelNotices,
+    basicRequestSelected,
+    billableOrders,
+    cancelNoticesOpen,
+    cancelOrderMutation,
+    cancelStaffCallMutation,
+    canceledOrder,
+    cart,
+    cartItems,
+    closePaymentDialog,
+    completedOrder,
+    confirmSettingsPassword,
+    createOrderMutation,
+    createStaffCallMutation,
+    displayQuantity,
+    displayTotalPrice,
+    draftHeaderNavVisible,
+    isError,
+    isLoading,
+    openPaymentDialog,
+    openSettingsPasswordDialog,
+    openStaffCallDialog,
+    orderConfirmOpen,
+    orderType,
+    orderTypeLabel,
+    payableOrders,
+    paymentDialogOpen,
+    paymentGuideCopy,
+    paymentLaunching,
+    paymentSelectionMode,
+    products,
+    requestSubmitOrder,
+    requestTossPayment,
+    selectPaymentMode,
+    selectedPaymentOrderIds,
+    selectedPaymentOrders,
+    selectedPaymentTotalPrice,
+    setActiveTab,
+    setBasicRequestSelected,
+    setCancelNoticesOpen,
+    setCanceledOrder,
+    setCompletedOrder,
+    setDraftHeaderNavVisible,
+    setOrderConfirmOpen,
+    setOrderType,
+    setSettingsOpen,
+    setSettingsPassword,
+    setSettingsPasswordError,
+    setSettingsPasswordOpen,
+    setStaffCallDialogOpen,
+    setStaffCallMessage,
+    setStaffCallType,
+    settingsOpen,
+    settingsPassword,
+    settingsPasswordError,
+    settingsPasswordOpen,
+    staffCallDialogOpen,
+    staffCallMessage,
+    staffCallType,
+    submitOrder,
+    tableName,
+    tabs,
+    togglePaymentOrder,
+    toggleProductSelection,
+    totalPrice,
+    totalQuantity,
+    updateCartItemQuantity,
+    updateKioskHeaderNavMutation,
+    updateQuantity,
+    visibleCancelNotices,
+  } = kiosk;
   return (
-    <main className="h-[calc(100vh-3.5rem)] overflow-hidden bg-zinc-50 px-4 py-4">
-      <div className="mx-auto grid h-full max-w-7xl gap-4 lg:grid-cols-[1fr_360px]">
-        <section className="flex min-w-0 flex-col gap-4 overflow-hidden">
+    <main className="min-h-[calc(100svh-3.5rem)] overflow-y-auto bg-zinc-50 px-4 py-4 lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden">
+      <div className="mx-auto grid min-h-0 max-w-7xl gap-4 lg:h-full lg:grid-cols-[1fr_360px]">
+        <section className="flex min-w-0 flex-col gap-4 lg:overflow-hidden">
           <div className="flex flex-shrink-0 flex-col gap-4 rounded-lg border border-zinc-300 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <span
@@ -749,7 +1109,7 @@ export function KioskHome() {
             })}
           </div>
 
-          <div className="flex-1 overflow-y-auto pr-1">
+          <div className="min-h-[320px] lg:flex-1 lg:overflow-y-auto lg:pr-1">
             {isLoading ? (
               <StatePanel message="메뉴를 불러오는 중입니다." />
             ) : isError ? (
@@ -782,8 +1142,8 @@ export function KioskHome() {
           </div>
         </section>
 
-        <aside className="flex h-full flex-col overflow-hidden">
-          <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+        <aside className="flex flex-col lg:h-full lg:overflow-hidden">
+          <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm lg:h-full">
             <div className="flex items-center justify-between border-b border-zinc-300 bg-zinc-50 px-4 py-3">
               <div className="flex items-center gap-2">
                 <ShoppingBag className="h-4 w-4 text-muted-foreground" />
@@ -913,13 +1273,6 @@ export function KioskHome() {
                         : "주문 접수하기"}
                   </button>
 
-                  <div className="rounded-md border border-dashed border-border bg-background p-3">
-                    <p className="text-sm font-semibold">후불 결제 안내</p>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                      식사 후 데스크에서 {tableName ? `${tableName} ` : ""}주문 내역으로 결제해주세요.
-                    </p>
-                  </div>
-
                   {activeStaffCalls.length > 0 ? (
                     <div className="rounded-md border border-rose-300 bg-rose-50 p-3">
                       <div className="flex items-center gap-2 text-rose-800">
@@ -942,7 +1295,21 @@ export function KioskHome() {
                     </div>
                   ) : null}
 
-                  <div className="grid grid-cols-[1fr_44px] gap-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={openPaymentDialog}
+                      disabled={payableOrders.length === 0 || !tableName.trim()}
+                      className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      결제
+                      {payableOrders.length > 0 ? (
+                        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-bold text-white">
+                          {payableOrders.length}
+                        </span>
+                      ) : null}
+                    </button>
                     <button
                       type="button"
                       onClick={openStaffCallDialog}
@@ -956,15 +1323,26 @@ export function KioskHome() {
                         </span>
                       ) : null}
                     </button>
-                    <button
-                      type="button"
-                      aria-label="키오스크 설정"
-                      title="키오스크 설정"
-                      onClick={openSettingsPasswordDialog}
-                      className="flex h-11 w-11 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    >
-                      <Settings className="h-4 w-4" />
-                    </button>
+                  </div>
+
+                  <div className="flex items-start justify-between gap-3 rounded-md border border-dashed border-border bg-background p-3">
+                    <div className="flex min-w-0 gap-2">
+                      <button
+                        type="button"
+                        aria-label="로그인바 설정"
+                        title="로그인바 설정"
+                        onClick={openSettingsPasswordDialog}
+                        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      >
+                        <CircleHelp className="h-4 w-4" />
+                      </button>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold">{paymentGuideCopy.title}</p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {paymentGuideCopy.description}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
             </>
@@ -1016,6 +1394,46 @@ export function KioskHome() {
           <CanceledOrderSummary order={canceledOrder} tableName={tableName} />
         )}
       </NoticeDialog>
+      <ConfirmDialog
+        open={paymentDialogOpen}
+        title={paymentSelectionMode ? "결제할 주문을 확인해주세요" : "결제 방식을 선택해주세요"}
+        description={
+          paymentSelectionMode
+            ? "선택한 주문 묶음에 대해 토스 결제창을 한 번만 엽니다."
+            : "단건은 주문 1건만 결제하고, 다건은 여러 주문을 한 번에 묶어 결제합니다."
+        }
+        confirmText={
+          !paymentSelectionMode
+            ? "결제 방식 선택"
+            : paymentLaunching
+              ? "결제창 여는 중"
+              : "테스트 결제하기"
+        }
+        cancelText={paymentSelectionMode ? "방식 변경" : "닫기"}
+        loading={paymentLaunching}
+        confirmDisabled={!paymentSelectionMode || selectedPaymentOrders.length === 0 || selectedPaymentTotalPrice <= 0}
+        onCancel={closePaymentDialog}
+        onConfirm={() => {
+          if (!paymentSelectionMode) return;
+          void requestTossPayment();
+        }}
+      >
+        {paymentSelectionMode ? (
+          <PaymentReadySummary
+            mode={paymentSelectionMode}
+            orders={payableOrders}
+            selectedOrderIds={selectedPaymentOrderIds}
+            tableName={tableName}
+            totalPrice={selectedPaymentTotalPrice}
+            onToggleOrder={togglePaymentOrder}
+          />
+        ) : (
+          <PaymentModePicker
+            orders={payableOrders}
+            onSelectMode={selectPaymentMode}
+          />
+        )}
+      </ConfirmDialog>
       <NoticeDialog
         open={cancelNoticesOpen}
         title="취소 안내"
@@ -1215,9 +1633,9 @@ export function KioskHome() {
             }}
             className="w-full max-w-sm rounded-lg border border-border bg-background p-5 shadow-xl"
           >
-            <h2 className="text-lg font-black">키오스크 설정</h2>
+            <h2 className="text-lg font-black">로그인바 설정</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              설정을 변경하려면 관리자 비밀번호를 입력해주세요.
+              로그인바 표시를 변경하려면 관리자 비밀번호를 입력해주세요.
             </p>
             <div className="mt-4">
               <label className="text-sm font-bold" htmlFor="kiosk-settings-password">
@@ -1271,22 +1689,22 @@ export function KioskHome() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
         >
           <div className="w-full max-w-md rounded-lg border border-border bg-background p-5 shadow-xl">
-            <h2 className="text-lg font-black">키오스크 설정</h2>
+            <h2 className="text-lg font-black">로그인바 설정</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              키오스크 화면 표시 방식을 조정합니다.
+              키오스크 화면의 상단 로그인바 표시 방식을 조정합니다.
             </p>
 
             <div className="mt-5 flex items-center justify-between gap-4 rounded-md border border-border bg-muted/30 p-4">
               <div>
-                <p className="text-sm font-black">헤더 네비 출력 여부</p>
+                <p className="text-sm font-black">로그인바 출력 여부</p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  끄면 키오스크 화면에서 상단 헤더가 숨겨집니다.
+                  끄면 키오스크 화면에서 상단 로그인/로그아웃 바가 숨겨집니다.
                 </p>
               </div>
               <Switch
                 checked={draftHeaderNavVisible}
                 onCheckedChange={setDraftHeaderNavVisible}
-                aria-label="헤더 네비 출력 여부"
+                aria-label="로그인바 출력 여부"
               />
             </div>
 
@@ -1316,6 +1734,618 @@ export function KioskHome() {
         </div>
       ) : null}
     </main>
+  );
+}
+
+function KioskMobileView({ kiosk }: { kiosk: KioskOrderModel }) {
+  const {
+    activeTab,
+    billableOrders,
+    cart,
+    cartItems,
+    createOrderMutation,
+    displayQuantity,
+    displayTotalPrice,
+    isError,
+    isLoading,
+    openPaymentDialog,
+    openStaffCallDialog,
+    orderType,
+    payableOrders,
+    products,
+    requestSubmitOrder,
+    setActiveTab,
+    setOrderType,
+    tableName,
+    tabs,
+    toggleProductSelection,
+    totalQuantity,
+    updateQuantity,
+    visibleCancelNotices,
+    setCancelNoticesOpen,
+  } = kiosk;
+  const [activeProductIndex, setActiveProductIndex] = useState(0);
+  const [slideDirection, setSlideDirection] = useState(1);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const activeProduct = products[activeProductIndex] ?? null;
+  const activeProductKey = activeProduct ? toCartKey(activeProduct.type, activeProduct.id) : null;
+
+  useEffect(() => {
+    setActiveProductIndex(0);
+  }, [activeTab, products.length]);
+
+  const moveProduct = (delta: number) => {
+    setSlideDirection(delta >= 0 ? 1 : -1);
+    setActiveProductIndex((current) =>
+      Math.max(0, Math.min(current + delta, products.length - 1))
+    );
+  };
+
+  const finishTouch = (clientX: number) => {
+    if (touchStartX == null) return;
+    const deltaX = clientX - touchStartX;
+    setTouchStartX(null);
+    if (Math.abs(deltaX) < 48) return;
+    if (deltaX < 0) {
+      moveProduct(1);
+    } else {
+      moveProduct(-1);
+    }
+  };
+
+  return (
+    <main className="min-h-[calc(100svh-3.5rem)] bg-zinc-50 pb-44">
+      <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur">
+        <div className="flex items-center gap-3">
+          <span
+            aria-label={tableName ? `${tableName} 테이블` : "테이블 미설정"}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary text-xl font-black leading-none text-primary-foreground tabular-nums"
+          >
+            {getTableBadgeLabel(tableName)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-lg font-black">키오스크 주문</h1>
+            <p className="truncate text-xs font-semibold text-muted-foreground">
+              {tableName || "테이블명 미설정"}
+            </p>
+          </div>
+          {visibleCancelNotices.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setCancelNoticesOpen(true)}
+              className="h-9 rounded-md border border-red-300 bg-red-50 px-3 text-xs font-black text-red-700"
+            >
+              취소 {visibleCancelNotices.length}
+            </button>
+          ) : null}
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <OrderTypeButton
+            active={orderType === "dine-in"}
+            icon={Store}
+            label="매장"
+            onClick={() => setOrderType("dine-in")}
+          />
+          <OrderTypeButton
+            active={orderType === "takeout"}
+            icon={Package}
+            label="포장"
+            onClick={() => setOrderType("takeout")}
+          />
+        </div>
+      </header>
+
+      <nav className="sticky top-[124px] z-20 flex gap-2 overflow-x-auto border-b border-zinc-200 bg-zinc-50 px-4 py-3">
+        {tabs.map((tab) => {
+          const active =
+            activeTab.type === tab.type &&
+            (tab.type === "SET" ||
+              (activeTab.type === "MENU" && activeTab.categoryId === tab.categoryId));
+
+          return (
+            <button
+              key={tab.type === "SET" ? "SET" : `MENU:${tab.categoryId}`}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                "h-10 shrink-0 rounded-md border px-4 text-sm font-black",
+                active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-zinc-300 bg-white text-foreground",
+              )}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </nav>
+
+      <section className="flex min-h-[calc(100svh-25rem)] items-center px-4 pb-4 pt-0">
+        {isLoading ? (
+          <StatePanel message="메뉴를 불러오는 중입니다." />
+        ) : isError ? (
+          <StatePanel message="메뉴를 불러오지 못했습니다." tone="error" />
+        ) : products.length === 0 ? (
+          <StatePanel
+            message={
+              activeTab.type === "SET"
+                ? "등록된 세트 메뉴가 없습니다."
+                : "표시할 메뉴가 없습니다."
+            }
+          />
+        ) : (
+          <div className="relative mx-auto w-full max-w-md">
+            {products.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  aria-label="이전 메뉴"
+                  onClick={() => moveProduct(-1)}
+                  disabled={activeProductIndex <= 0}
+                  className="absolute -left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-300 bg-white/95 text-zinc-900 shadow-md disabled:opacity-30"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="다음 메뉴"
+                  onClick={() => moveProduct(1)}
+                  disabled={activeProductIndex >= products.length - 1}
+                  className="absolute -right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-300 bg-white/95 text-zinc-900 shadow-md disabled:opacity-30"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </>
+            ) : null}
+            <div
+              id="kiosk-menu-list"
+              className="mx-auto w-[calc(100vw-6rem)] max-w-[360px] touch-pan-y overflow-hidden pb-4"
+              onTouchStart={(event) => setTouchStartX(event.touches[0]?.clientX ?? null)}
+              onTouchEnd={(event) => finishTouch(event.changedTouches[0]?.clientX ?? 0)}
+              onTouchCancel={() => setTouchStartX(null)}
+            >
+              <AnimatePresence mode="popLayout" initial={false} custom={slideDirection}>
+                {activeProduct && activeProductKey ? (
+                  <motion.div
+                    key={activeProductKey}
+                    custom={slideDirection}
+                    initial={{ x: slideDirection * 48, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: slideDirection * -48, opacity: 0 }}
+                    transition={{ duration: 0.22, ease: "easeOut" }}
+                  >
+                    <MenuCard
+                      product={activeProduct}
+                      quantity={cart[activeProductKey]?.quantity ?? 0}
+                      onMinus={() => updateQuantity(activeProduct, -1)}
+                      onPlus={() => updateQuantity(activeProduct, 1)}
+                      onToggle={() => toggleProductSelection(activeProduct)}
+                    />
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </div>
+            {products.length > 1 ? (
+              <div className="mt-1 flex justify-center gap-1.5" aria-label="메뉴 위치">
+                {products.map((product, index) => (
+                  <span
+                    key={`${product.type}:${product.id}:dot`}
+                    className={cn(
+                      "h-1.5 rounded-full transition-all",
+                      index === Math.min(activeProductIndex, products.length - 1)
+                        ? "w-5 bg-zinc-900"
+                        : "w-1.5 bg-zinc-300",
+                    )}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
+        )}
+      </section>
+
+      <section className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-300 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_30px_rgba(0,0,0,0.08)]">
+        <div className="mx-auto max-w-md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground">총 수량 {displayQuantity}개</p>
+              <p className="text-2xl font-black">{formatPrice(displayTotalPrice)}원</p>
+            </div>
+            <div className="text-right text-xs font-semibold text-muted-foreground">
+              {cartItems.length > 0 ? `선택 ${totalQuantity}개` : `접수 ${billableOrders.length}건`}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={requestSubmitOrder}
+            disabled={(totalQuantity === 0 && billableOrders.length === 0) || createOrderMutation.isPending || !tableName.trim()}
+            className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-md bg-primary text-sm font-black text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ReceiptText className="h-4 w-4" />
+            {createOrderMutation.isPending
+              ? "접수 중"
+              : billableOrders.length > 0 && totalQuantity === 0
+                ? "추가 메뉴를 선택해주세요"
+                : billableOrders.length > 0
+                  ? "추가 주문 접수하기"
+                  : "주문 접수하기"}
+          </button>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={openPaymentDialog}
+              disabled={payableOrders.length === 0 || !tableName.trim()}
+              className="flex h-10 items-center justify-center gap-2 rounded-md border border-border text-sm font-bold disabled:opacity-40"
+            >
+              <CreditCard className="h-4 w-4" />
+              결제
+            </button>
+            <button
+              type="button"
+              onClick={openStaffCallDialog}
+              className="flex h-10 items-center justify-center gap-2 rounded-md border border-border text-sm font-bold"
+            >
+              <Phone className="h-4 w-4" />
+              직원 호출
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <KioskDialogs kiosk={kiosk} />
+    </main>
+  );
+}
+
+function KioskDialogs({ kiosk }: { kiosk: KioskOrderModel }) {
+  const {
+    acknowledgeCanceledOrdersMutation,
+    acknowledgeVisibleCancelNotices,
+    basicRequestSelected,
+    cancelNoticesOpen,
+    canceledOrder,
+    cartItems,
+    closePaymentDialog,
+    completedOrder,
+    confirmSettingsPassword,
+    createOrderMutation,
+    createStaffCallMutation,
+    draftHeaderNavVisible,
+    orderConfirmOpen,
+    orderTypeLabel,
+    payableOrders,
+    paymentDialogOpen,
+    paymentLaunching,
+    paymentSelectionMode,
+    requestTossPayment,
+    selectPaymentMode,
+    selectedPaymentOrderIds,
+    selectedPaymentOrders,
+    selectedPaymentTotalPrice,
+    setBasicRequestSelected,
+    setCanceledOrder,
+    setCompletedOrder,
+    setDraftHeaderNavVisible,
+    setOrderConfirmOpen,
+    setSettingsOpen,
+    setSettingsPassword,
+    setSettingsPasswordError,
+    setSettingsPasswordOpen,
+    setStaffCallDialogOpen,
+    setStaffCallMessage,
+    setStaffCallType,
+    settingsOpen,
+    settingsPassword,
+    settingsPasswordError,
+    settingsPasswordOpen,
+    staffCallDialogOpen,
+    staffCallMessage,
+    staffCallType,
+    submitOrder,
+    tableName,
+    togglePaymentOrder,
+    totalPrice,
+    totalQuantity,
+    updateKioskHeaderNavMutation,
+    visibleCancelNotices,
+  } = kiosk;
+
+  return (
+    <>
+      <ConfirmDialog
+        open={orderConfirmOpen}
+        title="주문을 접수할까요?"
+        description="접수 후 주방에 주문 요청이 전달됩니다."
+        confirmText={createOrderMutation.isPending ? "접수 중" : "주문 접수"}
+        cancelText="다시 확인"
+        loading={createOrderMutation.isPending}
+        onCancel={() => setOrderConfirmOpen(false)}
+        onConfirm={submitOrder}
+      >
+        <OrderConfirmSummary
+          tableName={tableName}
+          orderTypeLabel={orderTypeLabel}
+          items={cartItems}
+          totalQuantity={totalQuantity}
+          totalPrice={totalPrice}
+        />
+      </ConfirmDialog>
+      <NoticeDialog
+        open={!!completedOrder}
+        title="주문이 접수되었습니다"
+        tone="success"
+        confirmText="확인"
+        onConfirm={() => setCompletedOrder(null)}
+      >
+        {completedOrder && (
+          <OrderNoticeSummary order={completedOrder} tableName={tableName} />
+        )}
+      </NoticeDialog>
+      <NoticeDialog
+        open={!!canceledOrder}
+        title="주문이 취소되었습니다"
+        tone="info"
+        confirmText="확인"
+        onConfirm={() => {
+          setCanceledOrder(null);
+          if (tableName.trim()) {
+            acknowledgeCanceledOrdersMutation.mutate();
+          }
+        }}
+      >
+        {canceledOrder && (
+          <CanceledOrderSummary order={canceledOrder} tableName={tableName} />
+        )}
+      </NoticeDialog>
+      <ConfirmDialog
+        open={paymentDialogOpen}
+        title={paymentSelectionMode ? "결제할 주문을 확인해주세요" : "결제 방식을 선택해주세요"}
+        description={
+          paymentSelectionMode
+            ? "선택한 주문 묶음에 대해 토스 결제창을 한 번만 엽니다."
+            : "단건은 주문 1건만 결제하고, 다건은 여러 주문을 한 번에 묶어 결제합니다."
+        }
+        confirmText={
+          !paymentSelectionMode
+            ? "결제 방식 선택"
+            : paymentLaunching
+              ? "결제창 여는 중"
+              : "테스트 결제하기"
+        }
+        cancelText={paymentSelectionMode ? "방식 변경" : "닫기"}
+        loading={paymentLaunching}
+        confirmDisabled={!paymentSelectionMode || selectedPaymentOrders.length === 0 || selectedPaymentTotalPrice <= 0}
+        onCancel={closePaymentDialog}
+        onConfirm={() => {
+          if (!paymentSelectionMode) return;
+          void requestTossPayment();
+        }}
+      >
+        {paymentSelectionMode ? (
+          <PaymentReadySummary
+            mode={paymentSelectionMode}
+            orders={payableOrders}
+            selectedOrderIds={selectedPaymentOrderIds}
+            tableName={tableName}
+            totalPrice={selectedPaymentTotalPrice}
+            onToggleOrder={togglePaymentOrder}
+          />
+        ) : (
+          <PaymentModePicker
+            orders={payableOrders}
+            onSelectMode={selectPaymentMode}
+          />
+        )}
+      </ConfirmDialog>
+      <NoticeDialog
+        open={cancelNoticesOpen}
+        title="취소 안내"
+        tone="error"
+        confirmText="확인"
+        onConfirm={acknowledgeVisibleCancelNotices}
+      >
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-foreground">취소된 주문입니다.</p>
+          <div className="max-h-72 space-y-2 overflow-y-auto">
+            {visibleCancelNotices.map((notice) => (
+              <div key={notice.key} className="rounded-md border border-red-200 bg-red-50 px-3 py-2">
+                <div className="flex items-center justify-between gap-2 text-xs font-semibold text-red-700">
+                  <span className="min-w-0 truncate">
+                    {notice.orderNo ? `주문번호: ${notice.orderNo}` : "취소된 주문"}
+                  </span>
+                  <span className="shrink-0">{formatTime(notice.receivedAt.toISOString())}</span>
+                </div>
+                <p className="mt-2 text-sm font-bold text-red-800">{notice.message}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </NoticeDialog>
+      {staffCallDialogOpen ? (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
+          <div className="w-full max-w-3xl rounded-lg border border-border bg-background p-5 shadow-xl">
+            <h2 className="text-lg font-black">직원 호출</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {tableName ? `${tableName}에서 직원을 호출합니다.` : "테이블명이 필요합니다."}
+            </p>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <section className="rounded-md border border-border bg-muted/30 p-4">
+                <h3 className="text-sm font-black">기본 요청</h3>
+                <div className="mt-3 flex flex-col gap-2">
+                  {(["물", "냅킨", "앞접시", "그릇 치워주세요"] as const).map((item) => {
+                    const checked = basicRequestSelected.has(item);
+                    return (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => {
+                          setBasicRequestSelected((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(item)) next.delete(item);
+                            else next.add(item);
+                            return next;
+                          });
+                        }}
+                        className={cn(
+                          "flex h-11 items-center gap-3 rounded-md border bg-background px-3 text-left text-sm font-bold transition-colors",
+                          checked ? "border-primary text-primary" : "border-border hover:bg-accent",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "flex h-5 w-5 shrink-0 items-center justify-center rounded border",
+                            checked ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background",
+                          )}
+                        >
+                          {checked ? <Check className="h-3 w-3" /> : null}
+                        </span>
+                        <span>{item}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+              <section className="rounded-md border border-border bg-background p-4">
+                <h3 className="text-sm font-black">직원 호출</h3>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {(["GENERAL", "REFILL", "QUESTION", "PAYMENT", "OTHER"] as StaffCallType[]).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setStaffCallType(type)}
+                      className={cn(
+                        "h-11 rounded-md border text-sm font-bold transition-colors",
+                        staffCallType === type
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background hover:bg-accent",
+                      )}
+                    >
+                      {staffCallTypeLabel[type]}
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  value={staffCallMessage}
+                  onChange={(event) => setStaffCallMessage(event.target.value)}
+                  rows={4}
+                  maxLength={200}
+                  placeholder="추가 메시지를 입력해주세요. (선택)"
+                  className="mt-3 w-full resize-none rounded-md border border-border bg-background p-3 text-sm outline-none focus:border-primary"
+                />
+              </section>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={createStaffCallMutation.isPending}
+                onClick={() => {
+                  setStaffCallDialogOpen(false);
+                  setStaffCallMessage("");
+                  setStaffCallType("GENERAL");
+                  setBasicRequestSelected(new Set());
+                }}
+                className="h-10 rounded-md border border-border px-4 text-sm font-bold hover:bg-accent disabled:opacity-60"
+              >
+                닫기
+              </button>
+              <button
+                type="button"
+                disabled={createStaffCallMutation.isPending || !tableName.trim()}
+                onClick={() => createStaffCallMutation.mutate()}
+                className="h-10 rounded-md bg-primary px-4 text-sm font-bold text-primary-foreground hover:opacity-90 disabled:opacity-60"
+              >
+                {createStaffCallMutation.isPending ? "요청 중" : "요청하기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {settingsPasswordOpen ? (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              confirmSettingsPassword();
+            }}
+            className="w-full max-w-sm rounded-lg border border-border bg-background p-5 shadow-xl"
+          >
+            <h2 className="text-lg font-black">로그인바 설정</h2>
+            <PasswordInput
+              id="kiosk-settings-password-mobile"
+              value={settingsPassword}
+              autoFocus
+              onChange={(event) => {
+                setSettingsPassword(event.target.value);
+                setSettingsPasswordError("");
+              }}
+              invalid={!!settingsPasswordError}
+              className="mt-4 h-11"
+            />
+            {settingsPasswordError ? (
+              <p className="mt-2 text-xs font-semibold text-destructive">{settingsPasswordError}</p>
+            ) : null}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsPasswordOpen(false);
+                  setSettingsPassword("");
+                  setSettingsPasswordError("");
+                }}
+                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent"
+              >
+                취소
+              </button>
+              <button type="submit" className="rounded-md bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground hover:opacity-90">
+                확인
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+      {settingsOpen ? (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
+          <div className="w-full max-w-md rounded-lg border border-border bg-background p-5 shadow-xl">
+            <h2 className="text-lg font-black">로그인바 설정</h2>
+            <div className="mt-5 flex items-center justify-between gap-4 rounded-md border border-border bg-muted/30 p-4">
+              <div>
+                <p className="text-sm font-black">로그인바 출력 여부</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  끄면 키오스크 화면에서 상단 로그인/로그아웃 바가 숨겨집니다.
+                </p>
+              </div>
+              <Switch
+                checked={draftHeaderNavVisible}
+                onCheckedChange={setDraftHeaderNavVisible}
+                aria-label="로그인바 출력 여부"
+              />
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={updateKioskHeaderNavMutation.isPending}
+                onClick={() => {
+                  setSettingsOpen(false);
+                  setSettingsPassword("");
+                  setSettingsPasswordError("");
+                }}
+                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-60"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={updateKioskHeaderNavMutation.isPending}
+                onClick={() => updateKioskHeaderNavMutation.mutate()}
+                className="rounded-md bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground hover:opacity-90 disabled:opacity-60"
+              >
+                {updateKioskHeaderNavMutation.isPending ? "저장 중" : "저장"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -1357,6 +2387,161 @@ function StaffCallStatusItem({
       {call.message ? (
         <p className="mt-1 text-xs text-rose-900">{call.message}</p>
       ) : null}
+    </div>
+  );
+}
+
+function PaymentModePicker({
+  orders,
+  onSelectMode,
+}: {
+  orders: Order[];
+  onSelectMode: (mode: PaymentSelectionMode) => void;
+}) {
+  const totalPrice = orders.reduce((sum, order) => sum + order.totalAmount, 0);
+  const multipleAvailable = orders.length >= 2;
+
+  return (
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={() => onSelectMode("SINGLE")}
+        className="flex w-full items-center justify-between gap-3 rounded-md border border-border bg-background p-4 text-left transition-colors hover:border-primary hover:bg-accent/40"
+      >
+        <span className="min-w-0">
+          <span className="block text-sm font-black text-foreground">단건 결제</span>
+          <span className="mt-1 block text-xs font-semibold text-muted-foreground">
+            결제 대기 주문 중 1건만 선택합니다.
+          </span>
+        </span>
+        <span className="shrink-0 rounded-md bg-muted px-2 py-1 text-xs font-black">
+          1건
+        </span>
+      </button>
+
+      <button
+        type="button"
+        disabled={!multipleAvailable}
+        onClick={() => onSelectMode("BUNDLE")}
+        className="flex w-full items-center justify-between gap-3 rounded-md border border-border bg-background p-4 text-left transition-colors hover:border-primary hover:bg-accent/40 disabled:cursor-not-allowed disabled:opacity-45"
+      >
+        <span className="min-w-0">
+          <span className="block text-sm font-black text-foreground">다건 결제</span>
+          <span className="mt-1 block text-xs font-semibold text-muted-foreground">
+            여러 주문을 묶어서 토스 결제창을 한 번만 엽니다.
+          </span>
+        </span>
+        <span className="shrink-0 rounded-md bg-emerald-50 px-2 py-1 text-xs font-black text-emerald-700">
+          {orders.length}건
+        </span>
+      </button>
+
+      <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm">
+        <span className="font-semibold text-muted-foreground">전체 결제 가능 금액</span>
+        <span className="font-black">{formatPrice(totalPrice)}원</span>
+      </div>
+    </div>
+  );
+}
+
+function PaymentReadySummary({
+  mode,
+  orders,
+  selectedOrderIds,
+  tableName,
+  totalPrice,
+  onToggleOrder,
+}: {
+  mode: PaymentSelectionMode;
+  orders: Order[];
+  selectedOrderIds: Set<number>;
+  tableName: string;
+  totalPrice: number;
+  onToggleOrder: (orderId: number) => void;
+}) {
+  const selectedOrders = orders.filter((order) => selectedOrderIds.has(order.id));
+  const totalQuantity = selectedOrders.reduce((sum, order) => sum + getOrderQuantity(order), 0);
+  const modeLabel = mode === "SINGLE" ? "단건 결제" : "다건 결제";
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 rounded-md border border-border bg-muted/30 p-3 text-xs">
+        <div>
+          <p className="text-muted-foreground">테이블</p>
+          <p className="mt-1 font-bold text-foreground">{tableName || "-"}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">결제 방식</p>
+          <p className="mt-1 font-bold text-foreground">{modeLabel}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">선택 주문</p>
+          <p className="mt-1 font-bold text-foreground">
+            {selectedOrders.length}/{orders.length}건
+          </p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">수량</p>
+          <p className="mt-1 font-bold text-foreground">{totalQuantity}개</p>
+        </div>
+        <div className="col-span-2">
+          <p className="text-muted-foreground">결제 금액</p>
+          <p className="mt-1 font-bold text-foreground">{formatPrice(totalPrice)}원</p>
+        </div>
+      </div>
+
+      <div className="max-h-64 overflow-y-auto rounded-md border border-border">
+        {orders.map((order) => (
+          <div key={order.id} className="border-b border-border last:border-b-0">
+            <button
+              type="button"
+              onClick={() => onToggleOrder(order.id)}
+              className="flex w-full items-start gap-3 p-3 text-left transition-colors hover:bg-accent/50"
+            >
+              <span
+                className={cn(
+                  "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border",
+                  selectedOrderIds.has(order.id)
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background",
+                )}
+              >
+                {selectedOrderIds.has(order.id) ? <Check className="h-3 w-3" /> : null}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 truncate text-xs font-semibold text-muted-foreground">
+                    주문번호: {order.orderNo}
+                  </span>
+                  <span className="shrink-0 text-sm font-black">
+                    {formatPrice(order.totalAmount)}원
+                  </span>
+                </span>
+                <span className="mt-2 block space-y-1">
+                  {order.items.map((item) => (
+                    <span key={item.id} className="flex items-start justify-between gap-3 text-sm">
+                      <span className="min-w-0">
+                        <span className="block truncate font-bold text-foreground">{item.name}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {formatPrice(item.unitPrice)}원 x {item.quantity}
+                        </span>
+                      </span>
+                      <span className="shrink-0 font-bold text-foreground">
+                        {formatPrice(item.lineTotal)}원
+                      </span>
+                    </span>
+                  ))}
+                </span>
+              </span>
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between rounded-md bg-emerald-50 px-3 py-2 text-emerald-700">
+        <span className="text-sm font-bold">총 결제 예정 금액</span>
+        <span className="text-lg font-black">{formatPrice(totalPrice)}원</span>
+      </div>
     </div>
   );
 }

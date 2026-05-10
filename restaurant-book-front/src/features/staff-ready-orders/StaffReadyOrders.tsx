@@ -91,6 +91,14 @@ const statusLabel: Record<StaffStatus, string> = {
   COMPLETED: "결제 완료",
 };
 
+const paymentMethodLabel: Record<PaymentMethod, string> = {
+  CARD: "카드",
+  CASH: "현금",
+  EASY_PAY: "간편결제",
+  TRANSFER: "계좌이체",
+  ETC: "기타",
+};
+
 const staffCallTypeLabel: Record<StaffCallType, string> = {
   GENERAL: "일반 호출",
   REFILL: "물/반찬 리필",
@@ -104,6 +112,10 @@ const headerTileClass =
 
 const isStaffStatus = (status: OrderStatus): status is StaffStatus =>
   status === "ACCEPTED" || status === "COOKING" || status === "READY" || status === "COMPLETED";
+
+const getPaymentLabel = (order: Order) =>
+  order.paymentProviderMethod?.trim() ||
+  (order.paymentMethod ? paymentMethodLabel[order.paymentMethod] : null);
 
 const staffHeaderNavStore = {
   get: getStaffHeaderNavVisible,
@@ -895,6 +907,7 @@ function StaffOrderCard({
 }) {
   const isTakeout = order.orderType === "TAKEOUT";
   const shortOrderNo = order.orderNo.split("-").at(-1) ?? order.orderNo;
+  const paymentLabel = order.status === "COMPLETED" ? getPaymentLabel(order) : null;
 
   return (
     <article className="rounded-md border border-border bg-background p-3 shadow-sm">
@@ -905,6 +918,11 @@ function StaffOrderCard({
             <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-semibold">
               {statusLabel[order.status]}
             </span>
+            {paymentLabel ? (
+              <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-800">
+                {paymentLabel}
+              </span>
+            ) : null}
           </div>
           <div className="mt-2 flex items-center gap-2 text-lg font-bold">
             {isTakeout ? <Package className="h-5 w-5" /> : <Store className="h-5 w-5" />}

@@ -1,0 +1,58 @@
+erDiagram
+    %% Physical table names can remain plural: payments, payment_orders, payment_refunds.
+    %% Entity names below are singular to match the domain model: Payment, PaymentOrder, PaymentRefund.
+    ORDER ||--o{ PAYMENT_ORDER : "is paid by"
+    PAYMENT ||--o{ PAYMENT_ORDER : "contains"
+    PAYMENT ||--o{ PAYMENT_REFUND : "has"
+
+    ORDER {
+        bigint id PK
+        varchar order_no UK
+        varchar table_name
+        varchar order_type
+        varchar status
+        int total_amount
+        varchar cancel_message
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    PAYMENT {
+        bigint id PK
+        int amount
+        varchar method
+        varchar status
+        timestamp paid_at
+        bigint handled_by
+        timestamp refunded_at
+        bigint refunded_by
+        varchar provider
+        varchar provider_payment_key UK
+        varchar provider_order_id UK
+        varchar provider_method
+        varchar receipt_url
+        timestamp approved_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    PAYMENT_ORDER {
+        bigint id PK
+        bigint payment_id FK
+        bigint order_id FK
+        int amount
+        timestamp created_at
+    }
+
+    PAYMENT_REFUND {
+        bigint id PK
+        bigint payment_id FK
+        int amount
+        varchar reason
+        varchar status
+        varchar provider_refund_id
+        timestamp refunded_at
+        bigint handled_by
+        timestamp created_at
+        timestamp updated_at
+    }

@@ -62,6 +62,11 @@ aws:
     prefix: ${AWS_S3_PREFIX:restaurant-book}
     presign-expires-seconds: 300
 
+toss-payments:
+  client-key: ${TOSS_PAYMENTS_CLIENT_KEY:}
+  secret-key: ${TOSS_PAYMENTS_SECRET_KEY:}
+  api-base-url: ${TOSS_PAYMENTS_API_BASE_URL:https://api.tosspayments.com}
+
 app:
   seed:
     test-accounts:

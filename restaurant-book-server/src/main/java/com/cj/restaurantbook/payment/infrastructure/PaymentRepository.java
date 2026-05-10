@@ -2,9 +2,7 @@ package com.cj.restaurantbook.payment.infrastructure;
 
 import com.cj.restaurantbook.payment.domain.Payment;
 import com.cj.restaurantbook.payment.domain.PaymentStatus;
-import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -13,15 +11,26 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
-    boolean existsByOrderId(Long orderId);
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    Optional<Payment> findForUpdateByOrderId(Long orderId);
+    Optional<Payment> findByProviderAndProviderPaymentKey(String provider, String providerPaymentKey);
 
     @Query("""
-            select p
+            select distinct p
             from Payment p
-            join fetch p.order o
+            left join fetch p.paymentOrders po
+            left join fetch po.order o
+            where p.provider = :provider
+              and p.providerPaymentKey = :providerPaymentKey
+            """)
+    Optional<Payment> findByProviderAndProviderPaymentKeyWithOrders(
+            @Param("provider") String provider,
+            @Param("providerPaymentKey") String providerPaymentKey
+    );
+
+    @Query("""
+            select distinct p
+            from Payment p
+            left join fetch p.paymentOrders po
+            left join fetch po.order o
             where p.status = :status
               and p.paidAt >= :start
               and p.paidAt < :end
@@ -34,9 +43,10 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     );
 
     @Query("""
-            select p
+            select distinct p
             from Payment p
-            join fetch p.order o
+            left join fetch p.paymentOrders po
+            left join fetch po.order o
             where p.status = :status
               and p.refundedAt >= :start
               and p.refundedAt < :end

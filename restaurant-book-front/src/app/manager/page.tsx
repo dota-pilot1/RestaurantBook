@@ -9,6 +9,7 @@ import {
   ChefHat,
   ClipboardList,
   CreditCard,
+  Landmark,
   LayoutDashboard,
   PackageCheck,
   PhoneCall,
@@ -16,6 +17,7 @@ import {
   ShoppingBag,
   Store,
   Utensils,
+  WalletCards,
 } from "lucide-react";
 import { managerApi } from "@/entities/manager/api/managerApi";
 import { useOperationalOrdersWebSocket } from "@/entities/order/api/orderRealtime";
@@ -29,12 +31,16 @@ const formatPrice = (value: number) => `${value.toLocaleString("ko-KR")}원`;
 const methodLabel: Record<PaymentMethod, string> = {
   CARD: "카드",
   CASH: "현금",
+  EASY_PAY: "간편결제",
+  TRANSFER: "계좌이체",
   ETC: "기타",
 };
 
 const methodIcon: Record<PaymentMethod, React.ComponentType<{ className?: string }>> = {
   CARD: CreditCard,
   CASH: Banknote,
+  EASY_PAY: WalletCards,
+  TRANSFER: Landmark,
   ETC: ReceiptText,
 };
 

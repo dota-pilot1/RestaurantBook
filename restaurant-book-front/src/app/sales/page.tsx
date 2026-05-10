@@ -7,11 +7,13 @@ import {
   BarChart3,
   ChevronDown,
   CreditCard,
+  Landmark,
   ReceiptText,
   RotateCcw,
+  WalletCards,
 } from "lucide-react";
 import { paymentApi } from "@/entities/payment/api/paymentApi";
-import type { PaymentMethod } from "@/entities/payment/model/types";
+import type { PaymentListItem, PaymentMethod } from "@/entities/payment/model/types";
 import { BackButton } from "@/shared/ui/BackButton";
 import { RequireRole } from "@/widgets/guards/RequireRole";
 
@@ -20,12 +22,16 @@ type Preset = "TODAY" | "WEEK" | "MONTH" | "CUSTOM";
 const methodLabel: Record<PaymentMethod, string> = {
   CARD: "카드",
   CASH: "현금",
+  EASY_PAY: "간편결제",
+  TRANSFER: "계좌이체",
   ETC: "기타",
 };
 
 const methodIcon: Record<PaymentMethod, React.ComponentType<{ className?: string }>> = {
   CARD: CreditCard,
   CASH: Banknote,
+  EASY_PAY: WalletCards,
+  TRANSFER: Landmark,
   ETC: ReceiptText,
 };
 
@@ -60,6 +66,8 @@ const getPresetRange = (preset: Preset) => {
 };
 
 const getShortOrderNo = (orderNo: string) => orderNo.split("-").at(-1) ?? orderNo;
+const getPaymentMethodLabel = (payment: PaymentListItem) =>
+  payment.providerMethod?.trim() || methodLabel[payment.method];
 
 export default function SalesPage() {
   return (
@@ -220,7 +228,7 @@ function SalesContent() {
                         #{getShortOrderNo(payment.orderNo)}
                       </td>
                       <td className="px-4 py-3">{payment.tableName ?? "테이블 미지정"}</td>
-                      <td className="px-4 py-3">{methodLabel[payment.method]}</td>
+                      <td className="px-4 py-3">{getPaymentMethodLabel(payment)}</td>
                       <td className="px-4 py-3 text-right font-black tabular-nums">
                         {formatPrice(payment.amount)}
                       </td>
@@ -266,7 +274,7 @@ function SalesContent() {
                       #{getShortOrderNo(payment.orderNo)}
                     </td>
                     <td className="px-4 py-3">{payment.tableName ?? "테이블 미지정"}</td>
-                    <td className="px-4 py-3">{methodLabel[payment.method]}</td>
+                    <td className="px-4 py-3">{getPaymentMethodLabel(payment)}</td>
                     <td className="px-4 py-3 text-right font-black tabular-nums text-red-700">
                       -{formatPrice(payment.amount)}
                     </td>
@@ -294,7 +302,7 @@ function SalesContent() {
             <span className="min-w-0">
               <span className="block text-sm font-bold">결제수단별 매출</span>
               <span className="mt-1 block text-xs font-semibold text-muted-foreground">
-                카드/현금/기타 정산 기능 확장 예정
+                카드/현금/간편결제/계좌이체 기준
               </span>
             </span>
             <ChevronDown
@@ -304,7 +312,7 @@ function SalesContent() {
             />
           </button>
           {showMethodSummary ? (
-            <div className="grid gap-3 border-t border-border p-4 md:grid-cols-3">
+            <div className="grid gap-3 border-t border-border p-4 md:grid-cols-3 xl:grid-cols-5">
               {(data?.methodSummaries ?? []).map((summary) => {
                 const Icon = methodIcon[summary.method];
                 const percent = totalAmount > 0 ? (summary.amount / totalAmount) * 100 : 0;

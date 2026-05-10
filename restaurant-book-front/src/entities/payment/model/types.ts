@@ -1,4 +1,4 @@
-export type PaymentMethod = "CARD" | "CASH" | "ETC";
+export type PaymentMethod = "CARD" | "CASH" | "EASY_PAY" | "TRANSFER" | "ETC";
 
 export type PaymentStatus = "PAID" | "CANCELED" | "REFUNDED";
 
@@ -15,6 +15,7 @@ export type PaymentListItem = {
   tableName: string | null;
   amount: number;
   method: PaymentMethod;
+  providerMethod: string | null;
   status: PaymentStatus;
   paidAt: string;
   refundedAt: string | null;

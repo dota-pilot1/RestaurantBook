@@ -178,14 +178,13 @@ class SalesServiceTest {
         ReflectionTestUtils.setField(order, "tableName", id + "번 테이블");
         ReflectionTestUtils.setField(order, "totalAmount", amount);
 
-        Payment payment = BeanUtils.instantiateClass(Payment.class);
+        Payment payment = Payment.paid(order, method, 10L);
         ReflectionTestUtils.setField(payment, "id", id);
-        ReflectionTestUtils.setField(payment, "order", order);
+        ReflectionTestUtils.setField(payment.getPaymentOrders().getFirst(), "id", id);
         ReflectionTestUtils.setField(payment, "amount", amount);
         ReflectionTestUtils.setField(payment, "method", method);
         ReflectionTestUtils.setField(payment, "status", status);
         ReflectionTestUtils.setField(payment, "paidAt", Instant.parse("2026-05-08T03:00:00Z"));
-        ReflectionTestUtils.setField(payment, "handledBy", 10L);
         if (status == PaymentStatus.REFUNDED) {
             ReflectionTestUtils.setField(payment, "refundedAt", Instant.parse("2026-05-08T05:00:00Z"));
             ReflectionTestUtils.setField(payment, "refundedBy", 11L);

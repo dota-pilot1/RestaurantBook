@@ -2,7 +2,7 @@ import { api } from "@/shared/api/axios";
 import type { SaleMenu, SaleMenuFilters, SaleMenuStatus } from "../model/types";
 
 export type CreateSaleMenuBody = {
-  categoryId: number | null;
+  categoryId: number;
   name: string;
   description: string | null;
   price: number;

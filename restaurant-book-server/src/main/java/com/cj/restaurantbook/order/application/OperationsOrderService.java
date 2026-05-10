@@ -8,12 +8,18 @@ import com.cj.restaurantbook.order.infrastructure.OrderRepository;
 import com.cj.restaurantbook.order.presentation.dto.OrderResponse;
 import com.cj.restaurantbook.payment.domain.Payment;
 import com.cj.restaurantbook.payment.domain.PaymentMethod;
+import com.cj.restaurantbook.payment.domain.PaymentOrder;
+import com.cj.restaurantbook.payment.domain.PaymentRefund;
+import com.cj.restaurantbook.payment.infrastructure.PaymentOrderRepository;
+import com.cj.restaurantbook.payment.infrastructure.PaymentRefundRepository;
 import com.cj.restaurantbook.payment.infrastructure.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +28,8 @@ public class OperationsOrderService {
     private final OrderRepository orderRepository;
     private final OrderBroadcaster orderBroadcaster;
     private final PaymentRepository paymentRepository;
+    private final PaymentOrderRepository paymentOrderRepository;
+    private final PaymentRefundRepository paymentRefundRepository;
 
     @Transactional(readOnly = true)
     public List<OrderResponse> findReadyOrders() {
@@ -32,10 +40,23 @@ public class OperationsOrderService {
 
     @Transactional(readOnly = true)
     public List<OrderResponse> findStaffBoardOrders() {
-        return orderRepository.findByStatusInOrderByCreatedAtAscIdAsc(
+        List<Order> orders = orderRepository.findByStatusInOrderByCreatedAtAscIdAsc(
                         List.of(OrderStatus.ACCEPTED, OrderStatus.COOKING, OrderStatus.READY, OrderStatus.COMPLETED)
-                ).stream()
-                .map(OrderResponse::from)
+                );
+        List<Long> completedOrderIds = orders.stream()
+                .filter(order -> order.getStatus() == OrderStatus.COMPLETED)
+                .map(Order::getId)
+                .toList();
+        Map<Long, Payment> paymentByOrderId = completedOrderIds.isEmpty()
+                ? Map.of()
+                : paymentOrderRepository.findByOrderIdInWithPayment(completedOrderIds).stream()
+                        .collect(Collectors.toMap(
+                                paymentOrder -> paymentOrder.getOrder().getId(),
+                                PaymentOrder::getPayment,
+                                (left, right) -> left
+                        ));
+        return orders.stream()
+                .map(order -> OrderResponse.from(order, paymentByOrderId.get(order.getId())))
                 .toList();
     }
 
@@ -69,7 +90,7 @@ public class OperationsOrderService {
     public OrderResponse complete(Long orderId, PaymentMethod paymentMethod, Long handledBy) {
         Order order = orderRepository.findForUpdateById(orderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
-        if (paymentRepository.existsByOrderId(orderId)) {
+        if (paymentOrderRepository.existsByOrderId(orderId)) {
             throw new BusinessException(ErrorCode.PAYMENT_ALREADY_EXISTS);
         }
         try {
@@ -77,9 +98,9 @@ public class OperationsOrderService {
         } catch (IllegalStateException e) {
             throw new BusinessException(ErrorCode.ORDER_STATUS_TRANSITION_NOT_ALLOWED);
         }
-        paymentRepository.save(Payment.paid(order, paymentMethod, handledBy));
+        Payment payment = paymentRepository.save(Payment.paid(order, paymentMethod, handledBy));
         orderBroadcaster.broadcastOrderChangedAfterCommit("COMPLETED", order.getId(), order.getTableName());
-        return OrderResponse.from(order);
+        return OrderResponse.from(order, payment);
     }
 
     @Transactional
@@ -99,17 +120,29 @@ public class OperationsOrderService {
     public OrderResponse refund(Long orderId, Long handledBy) {
         Order order = orderRepository.findForUpdateById(orderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
-        Payment payment = paymentRepository.findForUpdateByOrderId(orderId)
+        Payment payment = paymentOrderRepository.findForUpdateByOrderId(orderId)
+                .map(PaymentOrder::getPayment)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND));
 
         try {
-            order.refund();
+            for (PaymentOrder paymentOrder : payment.getPaymentOrders()) {
+                paymentOrder.getOrder().refund();
+            }
             payment.refund(handledBy);
+            paymentRefundRepository.save(PaymentRefund.completed(payment, payment.getAmount(), "운영 환불", handledBy));
         } catch (IllegalStateException e) {
             throw new BusinessException(ErrorCode.PAYMENT_REFUND_NOT_ALLOWED);
         }
 
-        orderBroadcaster.broadcastOrderChangedAfterCommit("REFUNDED", order.getId(), order.getTableName(), order.getCancelMessage());
+        for (PaymentOrder paymentOrder : payment.getPaymentOrders()) {
+            Order refundedOrder = paymentOrder.getOrder();
+            orderBroadcaster.broadcastOrderChangedAfterCommit(
+                    "REFUNDED",
+                    refundedOrder.getId(),
+                    refundedOrder.getTableName(),
+                    refundedOrder.getCancelMessage()
+            );
+        }
         return OrderResponse.from(order);
     }
 }

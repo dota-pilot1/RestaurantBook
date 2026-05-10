@@ -35,9 +35,12 @@ export function SaleMenuAvailabilityBoard() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ menu, patch }: { menu: SaleMenu; patch: Partial<SaleMenu> }) =>
-      saleMenuApi.update(menu.id, {
-        categoryId: menu.category?.id ?? null,
+    mutationFn: ({ menu, patch }: { menu: SaleMenu; patch: Partial<SaleMenu> }) => {
+      if (!menu.category) {
+        throw new Error("categoryId is required");
+      }
+      return saleMenuApi.update(menu.id, {
+        categoryId: menu.category.id,
         name: menu.name,
         description: menu.description,
         price: menu.price,
@@ -48,7 +51,8 @@ export function SaleMenuAvailabilityBoard() {
         availableTakeout: patch.availableTakeout ?? menu.availableTakeout,
         requiresCooking: menu.requiresCooking,
         displayOrder: menu.displayOrder,
-      }),
+      });
+    },
     onSuccess: () => {
       toast.success("상태가 변경되었습니다.");
       qc.invalidateQueries({ queryKey: ["sale-menus"] });

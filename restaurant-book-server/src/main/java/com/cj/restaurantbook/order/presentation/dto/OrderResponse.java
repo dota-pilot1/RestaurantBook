@@ -3,6 +3,8 @@ package com.cj.restaurantbook.order.presentation.dto;
 import com.cj.restaurantbook.order.domain.Order;
 import com.cj.restaurantbook.order.domain.OrderStatus;
 import com.cj.restaurantbook.order.domain.OrderType;
+import com.cj.restaurantbook.payment.domain.Payment;
+import com.cj.restaurantbook.payment.domain.PaymentMethod;
 
 import java.time.Instant;
 import java.util.Comparator;
@@ -18,11 +20,17 @@ public record OrderResponse(
         String cancelMessage,
         Instant kitchenCancelConfirmedAt,
         Instant kitchenCancelDismissedAt,
+        PaymentMethod paymentMethod,
+        String paymentProviderMethod,
         List<OrderItemResponse> items,
         Instant createdAt,
         Instant updatedAt
 ) {
     public static OrderResponse from(Order order) {
+        return from(order, null);
+    }
+
+    public static OrderResponse from(Order order, Payment payment) {
         return new OrderResponse(
                 order.getId(),
                 order.getOrderNo(),
@@ -33,6 +41,8 @@ public record OrderResponse(
                 order.getCancelMessage(),
                 order.getKitchenCancelConfirmedAt(),
                 order.getKitchenCancelDismissedAt(),
+                payment == null ? null : payment.getMethod(),
+                payment == null ? null : payment.getProviderMethod(),
                 order.getItems().stream()
                         .sorted(Comparator.comparingInt(com.cj.restaurantbook.order.domain.OrderItem::getDisplayOrder))
                         .map(OrderItemResponse::from)

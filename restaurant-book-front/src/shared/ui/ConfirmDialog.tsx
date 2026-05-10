@@ -13,6 +13,7 @@ type Props = {
   cancelText?: string;
   variant?: Variant;
   loading?: boolean;
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -26,6 +27,7 @@ export function ConfirmDialog({
   cancelText = "취소",
   variant = "default",
   loading = false,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }: Props) {
@@ -84,7 +86,7 @@ export function ConfirmDialog({
           <button
             ref={confirmRef}
             type="button"
-            disabled={loading}
+            disabled={loading || confirmDisabled}
             onClick={onConfirm}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-opacity disabled:opacity-60 ${confirmClass}`}
           >
