@@ -76,12 +76,12 @@ const fallbackNavigationMenus: NavigationMenuRecord[] = [
     id: -1,
     code: "DASHBOARD",
     parentId: null,
-    label: "대시보드",
-    labelKey: "nav.dashboard",
+    label: "관리자 콘솔",
+    labelKey: "nav.adminConsole",
     path: "/dashboard",
     icon: "LayoutDashboard",
     isExternal: false,
-    requiredRole: null,
+    requiredRole: "ROLE_ADMIN",
     requiredPermission: null,
     visible: true,
     displayOrder: 0,
@@ -124,8 +124,8 @@ const fallbackNavigationMenus: NavigationMenuRecord[] = [
     id: -4,
     code: "ADMIN_DASHBOARD",
     parentId: -3,
-    label: "대시보드",
-    labelKey: "nav.dashboard",
+    label: "관리자 콘솔",
+    labelKey: "nav.adminConsole",
     path: "/dashboard",
     icon: "LayoutDashboard",
     isExternal: false,
@@ -507,7 +507,7 @@ const fallbackNavigationMenus: NavigationMenuRecord[] = [
 ];
 
 const adminMenuMeta: Record<string, { description: string; icon: LucideIcon }> = {
-  ADMIN_DASHBOARD: { description: "주문, 매출, 운영 상태를 한 화면에서 확인합니다.", icon: LayoutDashboard },
+  ADMIN_DASHBOARD: { description: "계정, 권한, 메뉴, 화면 설정 허브로 이동합니다.", icon: LayoutDashboard },
   ADMIN_ORDERS: { description: "접수된 주문과 결제 상태를 관리합니다.", icon: ClipboardList },
   ADMIN_KITCHEN: { description: "주방 접수와 조리 진행 상태를 확인합니다.", icon: Utensils },
   ADMIN_SALES: { description: "일별 매출과 결제 흐름을 확인합니다.", icon: BarChart3 },
@@ -530,12 +530,23 @@ function flattenLeaves(item: NavigationMenuItem): NavigationMenuItem[] {
   return item.children.flatMap(flattenLeaves);
 }
 
+function getNavigationLabel(item: NavigationMenuItem, t: (key: string) => string) {
+  if (item.code === "DASHBOARD" || item.code === "ADMIN_DASHBOARD") {
+    return t("adminConsole");
+  }
+  return item.labelKey ? t(item.labelKey.replace("nav.", "")) : item.label;
+}
+
 function AdminMegaMenu({ item }: { item: NavigationMenuItem }) {
+  const { t } = useTranslation("nav");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const itemLabel = getNavigationLabel(item, t);
   const leaves = flattenLeaves(item);
-  const isActive = leaves.some((leaf) => leaf.path && pathname.startsWith(leaf.path));
+  const isActive = leaves.some(
+    (leaf) => leaf.path && leaf.path !== "/dashboard" && pathname.startsWith(leaf.path)
+  );
   const groups =
     item.children.some((child) => child.children.length > 0)
       ? item.children
@@ -557,11 +568,11 @@ function AdminMegaMenu({ item }: { item: NavigationMenuItem }) {
         aria-expanded={open}
         className={`inline-flex h-9 items-center gap-1 rounded-md border px-3 text-sm font-medium transition-colors ${
           isActive || open
-            ? "border-primary bg-primary text-primary-foreground"
-            : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground"
+            ? "border-slate-300 bg-slate-100 text-foreground dark:border-border dark:bg-muted"
+            : "border-transparent bg-transparent text-muted-foreground hover:bg-slate-100 hover:text-foreground dark:hover:bg-muted/70"
         }`}
       >
-        {item.label}
+        {itemLabel}
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -574,7 +585,7 @@ function AdminMegaMenu({ item }: { item: NavigationMenuItem }) {
 
                 return (
                   <div key={group.id} className="rounded-lg border border-border bg-muted/20 p-3">
-                    <h4 className="text-sm font-bold tracking-tight">{group.label}</h4>
+                    <h4 className="text-sm font-bold tracking-tight">{getNavigationLabel(group, t)}</h4>
                     <div className="mt-3 space-y-1.5">
                       {children.flatMap((child) =>
                         child.children.length > 0 ? child.children : [child]
@@ -599,7 +610,7 @@ function AdminMegaMenu({ item }: { item: NavigationMenuItem }) {
                             </span>
                             <span className="min-w-0">
                               <span className="block truncate text-sm font-semibold text-foreground">
-                                {child.label}
+                                {getNavigationLabel(child, t)}
                               </span>
                               <span className="mt-0.5 line-clamp-2 block text-xs leading-5 text-muted-foreground">
                                 {meta.description}
@@ -620,25 +631,21 @@ function AdminMegaMenu({ item }: { item: NavigationMenuItem }) {
 }
 
 function DropdownMenu({ item }: { item: NavigationMenuItem }) {
+  const { t } = useTranslation("nav");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const isBoardsDropdown = item.code === "BOARDS";
+  const itemLabel = getNavigationLabel(item, t);
 
   const isActive = item.children.some(
     (c) => c.path && pathname.startsWith(c.path)
   );
-  const buttonClassName = isBoardsDropdown
-    ? `inline-flex h-9 items-center gap-1 rounded-md border px-3 text-sm font-medium transition-colors ${
-        isActive || open
-          ? "border-primary/50 bg-primary/10 text-primary"
-          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-primary"
-      }`
-    : `inline-flex h-9 items-center gap-1 border-b-2 px-1 text-sm transition-colors ${
-        isActive
-          ? "border-primary text-foreground font-medium"
-          : "border-transparent text-muted-foreground hover:text-foreground"
-      }`;
+  const buttonClassName = `inline-flex h-9 items-center gap-1 rounded-md border px-3 text-sm font-medium transition-colors ${
+    isActive || open
+      ? "border-slate-300 bg-slate-100 text-foreground dark:border-border dark:bg-muted"
+      : "border-transparent bg-transparent text-muted-foreground hover:bg-slate-100 hover:text-foreground dark:hover:bg-muted/70"
+  }`;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -655,7 +662,7 @@ function DropdownMenu({ item }: { item: NavigationMenuItem }) {
         onClick={() => setOpen((v) => !v)}
         className={buttonClassName}
       >
-        {item.label}
+        {itemLabel}
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -680,7 +687,7 @@ function DropdownMenu({ item }: { item: NavigationMenuItem }) {
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               }`}
             >
-              {child.label}
+              {getNavigationLabel(child, t)}
             </Link>
           ))}
         </div>
@@ -690,15 +697,20 @@ function DropdownMenu({ item }: { item: NavigationMenuItem }) {
 }
 
 function NavItem({ item }: { item: NavigationMenuItem; key?: React.Key }) {
+  const { t } = useTranslation("nav");
+
   if (item.children.length > 0) {
     if (item.code === "ADMIN") {
       return <AdminMegaMenu item={item} />;
     }
     return <DropdownMenu item={item} />;
   }
+
+  const label = getNavigationLabel(item, t);
+
   return (
     <NavLink href={item.path ?? "#"} exact={item.path === "/dashboard"}>
-      {item.label}
+      {label}
     </NavLink>
   );
 }
@@ -917,10 +929,10 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-sm">
       <div className="flex h-14 w-full items-center justify-between px-4">
-        <nav className="flex min-w-0 items-center gap-5">
+        <nav className="flex min-w-0 items-center gap-1">
           <Link
             href="/"
-            className="mr-2 text-sm font-semibold tracking-tight hover:opacity-80 transition-opacity"
+            className="mr-4 shrink-0 text-sm font-semibold tracking-tight hover:opacity-80 transition-opacity"
           >
             식당 키오스크
           </Link>

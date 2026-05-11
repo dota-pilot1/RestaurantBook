@@ -45,7 +45,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const [tableName, setTableName] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [tablePopoverOpen, setTablePopoverOpen] = useState(false);
-  const [loginFormOpen, setLoginFormOpen] = useState(Boolean(nextPath));
+  const [loginFormOpen, setLoginFormOpen] = useState(false);
   const [selectedRoleCode, setSelectedRoleCode] = useState<string | null>(null);
   const tableSelectVisible = selectedRoleCode === "ROLE_CUSTOMER";
 

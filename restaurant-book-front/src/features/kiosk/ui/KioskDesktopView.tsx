@@ -13,6 +13,7 @@ import type { KioskOrderModel } from "../model/useKioskOrder";
 import { AcceptedOrdersSummary } from "./AcceptedOrdersSummary";
 import { CanceledOrderSummary, OrderConfirmSummary, OrderNoticeSummary } from "./OrderSummaries";
 import { MenuCard } from "./MenuCard";
+import { MenuDetailDialog } from "./MenuDetailDialog";
 import { OrderTypeButton } from "./OrderTypeButton";
 import { PaymentModePicker } from "./PaymentModePicker";
 import { PaymentReadySummary } from "./PaymentReadySummary";
@@ -41,12 +42,15 @@ export function KioskDesktopView({ kiosk }: { kiosk: KioskOrderModel }) {
     confirmSettingsPassword,
     createOrderMutation,
     createStaffCallMutation,
+    closeProductDetail,
+    detailProduct,
     displayQuantity,
     displayTotalPrice,
     draftHeaderNavVisible,
     isError,
     isLoading,
     openPaymentDialog,
+    openProductDetail,
     openSettingsPasswordDialog,
     openStaffCallDialog,
     orderConfirmOpen,
@@ -178,6 +182,7 @@ export function KioskDesktopView({ kiosk }: { kiosk: KioskOrderModel }) {
                       quantity={cart[key]?.quantity ?? 0}
                       onMinus={() => updateQuantity(product, -1)}
                       onPlus={() => updateQuantity(product, 1)}
+                      onOpenDetail={() => openProductDetail(product)}
                       onToggle={() => toggleProductSelection(product)}
                     />
                   );
@@ -215,6 +220,7 @@ export function KioskDesktopView({ kiosk }: { kiosk: KioskOrderModel }) {
                               quantity={cart[key]?.quantity ?? 0}
                               onMinus={() => updateQuantity(product, -1)}
                               onPlus={() => updateQuantity(product, 1)}
+                              onOpenDetail={() => openProductDetail(product)}
                               onToggle={() => toggleProductSelection(product)}
                             />
                           );
@@ -819,6 +825,7 @@ export function KioskDesktopView({ kiosk }: { kiosk: KioskOrderModel }) {
           </div>
         </div>
       ) : null}
+      <MenuDetailDialog product={detailProduct} onClose={closeProductDetail} />
     </main>
   );
 }

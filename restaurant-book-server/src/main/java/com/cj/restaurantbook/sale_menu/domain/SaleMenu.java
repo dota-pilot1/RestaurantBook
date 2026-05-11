@@ -30,6 +30,25 @@ public class SaleMenu {
     @Column(length = 500)
     private String description;
 
+    @Column(length = 1000)
+    private String detailDescription;
+
+    @Column(length = 1000)
+    private String ingredients;
+
+    @Column(length = 500)
+    private String allergens;
+
+    private Integer caloriesKcal;
+
+    private Integer carbohydrateG;
+
+    private Integer proteinG;
+
+    private Integer fatG;
+
+    private Integer sodiumMg;
+
     @Column(nullable = false)
     private int price;
 
@@ -67,6 +86,14 @@ public class SaleMenu {
             SaleMenuCategory category,
             String name,
             String description,
+            String detailDescription,
+            String ingredients,
+            String allergens,
+            Integer caloriesKcal,
+            Integer carbohydrateG,
+            Integer proteinG,
+            Integer fatG,
+            Integer sodiumMg,
             int price,
             String imageUrl,
             SaleMenuStatus status,
@@ -80,6 +107,14 @@ public class SaleMenu {
         menu.category = category;
         menu.name = name;
         menu.description = description;
+        menu.detailDescription = detailDescription;
+        menu.ingredients = ingredients;
+        menu.allergens = allergens;
+        menu.caloriesKcal = caloriesKcal;
+        menu.carbohydrateG = carbohydrateG;
+        menu.proteinG = proteinG;
+        menu.fatG = fatG;
+        menu.sodiumMg = sodiumMg;
         menu.price = price;
         menu.imageUrl = imageUrl;
         menu.status = status;
@@ -95,6 +130,14 @@ public class SaleMenu {
             SaleMenuCategory category,
             String name,
             String description,
+            String detailDescription,
+            String ingredients,
+            String allergens,
+            Integer caloriesKcal,
+            Integer carbohydrateG,
+            Integer proteinG,
+            Integer fatG,
+            Integer sodiumMg,
             int price,
             String imageUrl,
             SaleMenuStatus status,
@@ -107,6 +150,14 @@ public class SaleMenu {
         this.category = category;
         this.name = name;
         this.description = description;
+        this.detailDescription = detailDescription;
+        this.ingredients = ingredients;
+        this.allergens = allergens;
+        this.caloriesKcal = caloriesKcal;
+        this.carbohydrateG = carbohydrateG;
+        this.proteinG = proteinG;
+        this.fatG = fatG;
+        this.sodiumMg = sodiumMg;
         this.price = price;
         this.imageUrl = imageUrl;
         this.status = status;

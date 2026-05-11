@@ -18,6 +18,30 @@ public record UpdateSaleMenuSetRequest(
         @Size(max = 500)
         String description,
 
+        @Size(max = 1000)
+        String detailDescription,
+
+        @Size(max = 1000)
+        String ingredients,
+
+        @Size(max = 500)
+        String allergens,
+
+        @Min(0)
+        Integer caloriesKcal,
+
+        @Min(0)
+        Integer carbohydrateG,
+
+        @Min(0)
+        Integer proteinG,
+
+        @Min(0)
+        Integer fatG,
+
+        @Min(0)
+        Integer sodiumMg,
+
         @Min(0)
         int price,
 

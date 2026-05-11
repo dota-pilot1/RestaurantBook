@@ -58,7 +58,7 @@ export function TestLoginButtons({
       const effectiveTableName =
         account.roleCode === "ROLE_CUSTOMER" ? tableName : roleLabel;
       tableSessionStorage.setTableName(effectiveTableName);
-      toast.success(t("testLoginSuccess", { role: roleLabel }));
+      toast.success(t("testLoginSuccess", { role: roleLabel }), { duration: 2000 });
       router.replace(getPostLoginPath(user, nextPath));
     } catch (e) {
       const apiError = getApiError(e);

@@ -10,8 +10,51 @@ export const ROLE_HOME_PATHS: Record<string, string> = {
 
 const BLOCKED_NEXT_PATHS = new Set(["/", "/login", "/register", "/unauthorized"]);
 
-// ROLE_ADMIN 전용 경로 prefix — 다른 역할은 next 파라미터로 진입 불가
-const ADMIN_ONLY_PREFIXES = ["/dashboard", "/users", "/roles", "/permissions", "/role-permissions", "/permission-categories", "/navigation-menus", "/admin"];
+const ROLE_ALLOWED_PREFIXES: Array<{ prefixes: string[]; roles: string[] }> = [
+  {
+    prefixes: [
+      "/dashboard",
+      "/users",
+      "/roles",
+      "/permissions",
+      "/role-permissions",
+      "/permission-categories",
+      "/navigation-menus",
+      "/admin",
+      "/screen-settings",
+      "/site-settings",
+    ],
+    roles: ["ROLE_ADMIN"],
+  },
+  {
+    prefixes: [
+      "/manager",
+      "/sale-menus",
+      "/sale-menu-sets",
+      "/sale-menu-categories",
+      "/sale-menu-availability",
+      "/tables",
+      "/sales",
+    ],
+    roles: ["ROLE_ADMIN", "ROLE_MANAGER"],
+  },
+  {
+    prefixes: ["/orders"],
+    roles: ["ROLE_ADMIN", "ROLE_MANAGER", "ROLE_STAFF"],
+  },
+  {
+    prefixes: ["/kitchen", "/kitchen-board"],
+    roles: ["ROLE_ADMIN", "ROLE_KITCHEN"],
+  },
+  {
+    prefixes: ["/staff"],
+    roles: ["ROLE_ADMIN", "ROLE_STAFF"],
+  },
+  {
+    prefixes: ["/customer"],
+    roles: ["ROLE_ADMIN", "ROLE_CUSTOMER"],
+  },
+];
 
 export function getRoleHomePath(roleCode?: string | null): string {
   return roleCode ? ROLE_HOME_PATHS[roleCode] ?? "/dashboard" : "/dashboard";
@@ -21,8 +64,15 @@ export function isSafeInternalPath(path?: string | null): path is string {
   return !!path && path.startsWith("/") && !path.startsWith("//");
 }
 
-function isAdminOnlyPath(pathname: string): boolean {
-  return ADMIN_ONLY_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"));
+function matchesPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(prefix + "/");
+}
+
+export function canRoleAccessPath(roleCode: string, pathname: string): boolean {
+  const rule = ROLE_ALLOWED_PREFIXES.find((item) =>
+    item.prefixes.some((prefix) => matchesPrefix(pathname, prefix))
+  );
+  return !rule || rule.roles.includes(roleCode);
 }
 
 export function getPostLoginPath(user: User, nextPath?: string | null): string {
@@ -33,8 +83,7 @@ export function getPostLoginPath(user: User, nextPath?: string | null): string {
   const nextPathname = normalizedNext?.split(/[?#]/, 1)[0] ?? null;
 
   if (normalizedNext && nextPathname && !BLOCKED_NEXT_PATHS.has(nextPathname)) {
-    const isAdmin = user.role.code === "ROLE_ADMIN";
-    if (!isAdmin && isAdminOnlyPath(nextPathname)) {
+    if (!canRoleAccessPath(user.role.code, nextPathname)) {
       return getRoleHomePath(user.role.code);
     }
     return nextPath as string;

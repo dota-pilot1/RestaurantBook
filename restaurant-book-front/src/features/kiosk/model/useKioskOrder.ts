@@ -50,6 +50,7 @@ export function useKioskOrder() {
   const [settingsPassword, setSettingsPassword] = useState("");
   const [settingsPasswordError, setSettingsPasswordError] = useState("");
   const [draftHeaderNavVisible, setDraftHeaderNavVisible] = useState(true);
+  const [detailProduct, setDetailProduct] = useState<CustomerSaleProduct | null>(null);
 
   const customerOrderType = toCustomerOrderType(orderType);
 
@@ -468,6 +469,14 @@ export function useKioskOrder() {
     setStaffCallDialogOpen(true);
   };
 
+  const openProductDetail = (product: CustomerSaleProduct) => {
+    setDetailProduct(product);
+  };
+
+  const closeProductDetail = () => {
+    setDetailProduct(null);
+  };
+
   const openPaymentDialog = () => {
     if (!tableName.trim()) {
       toast.error("테이블명이 설정되어야 결제할 수 있습니다.");
@@ -707,12 +716,15 @@ export function useKioskOrder() {
     confirmSettingsPassword,
     createOrderMutation,
     createStaffCallMutation,
+    closeProductDetail,
+    detailProduct,
     displayQuantity,
     displayTotalPrice,
     draftHeaderNavVisible,
     isError,
     isLoading,
     openPaymentDialog,
+    openProductDetail,
     openSettingsPasswordDialog,
     openStaffCallDialog,
     orderConfirmOpen,

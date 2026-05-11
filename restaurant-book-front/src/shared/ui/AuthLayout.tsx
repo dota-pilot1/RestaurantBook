@@ -1,10 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import {
   BookOpen,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   Globe,
   Image as ImageIcon,
@@ -31,7 +33,7 @@ import { Switch } from "@/shared/ui/Switch";
 
 type AuthLayoutProps = {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   children: React.ReactNode;
 };
 
@@ -46,6 +48,8 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
   const [draftCustomerHeaderNavVisible, setDraftCustomerHeaderNavVisible] = useState(true);
   const [draftKitchenHeaderNavVisible, setDraftKitchenHeaderNavVisible] = useState(true);
   const [draftStaffHeaderNavVisible, setDraftStaffHeaderNavVisible] = useState(true);
+  const [activeHeroImageIndex, setActiveHeroImageIndex] = useState(0);
+  const [heroSlideDirection, setHeroSlideDirection] = useState(1);
 
   const { data: siteSetting } = useQuery({
     queryKey: ["site-settings"],
@@ -53,7 +57,18 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
     staleTime: 5 * 60 * 1000,
   });
 
-  const heroImageUrl = siteSetting?.heroImageUrl ?? null;
+  const heroImageUrls = siteSetting?.heroImageUrls?.length
+    ? siteSetting.heroImageUrls
+    : siteSetting?.heroImageUrl
+      ? [siteSetting.heroImageUrl]
+      : [];
+  const activeHeroImageUrl = heroImageUrls[activeHeroImageIndex] ?? null;
+
+  useEffect(() => {
+    if (activeHeroImageIndex >= heroImageUrls.length) {
+      setActiveHeroImageIndex(0);
+    }
+  }, [activeHeroImageIndex, heroImageUrls.length]);
 
   const updateHeaderNavMutation = useMutation({
     mutationFn: () =>
@@ -93,6 +108,11 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
     setDraftKitchenHeaderNavVisible(getKitchenHeaderNavVisible());
     setDraftStaffHeaderNavVisible(getStaffHeaderNavVisible());
     setSettingsOpen(true);
+  };
+
+  const selectHeroImage = (nextIndex: number, direction: number) => {
+    setHeroSlideDirection(direction);
+    setActiveHeroImageIndex(nextIndex);
   };
 
   return (
@@ -147,16 +167,29 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
               식당 키오스크
             </div>
 
-            <div className="relative overflow-hidden rounded-xl border border-border bg-background shadow-sm">
-              {heroImageUrl ? (
-                <Image
-                  src={heroImageUrl}
-                  alt={t("heroImageAlt")}
-                  fill
-                  unoptimized
-                  sizes="(max-width: 1024px) 100vw, 512px"
-                  className="object-cover"
-                />
+            <motion.div
+              className="relative aspect-[16/11] w-full overflow-hidden rounded-xl border border-border bg-background shadow-sm"
+            >
+              {activeHeroImageUrl ? (
+                <AnimatePresence initial={false} custom={heroSlideDirection} mode="popLayout">
+                  <motion.div
+                    key={`${activeHeroImageUrl}-${activeHeroImageIndex}`}
+                    custom={heroSlideDirection}
+                    role="img"
+                    aria-label={t("heroImageAlt")}
+                    initial={{ opacity: 0, x: heroSlideDirection * 28 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: heroSlideDirection * -28 }}
+                    transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+                    className="absolute inset-0"
+                    style={{
+                      backgroundImage: `url("${activeHeroImageUrl}")`,
+                      backgroundPosition: "center",
+                      backgroundRepeat: "no-repeat",
+                      backgroundSize: "cover",
+                    }}
+                  />
+                </AnimatePresence>
               ) : (
                 <>
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
@@ -170,8 +203,59 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
                   </span>
                 </>
               )}
-              <div className="aspect-[4/3]" />
-            </div>
+              {heroImageUrls.length > 1 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      selectHeroImage(
+                        activeHeroImageIndex === 0
+                          ? heroImageUrls.length - 1
+                          : activeHeroImageIndex - 1,
+                        -1
+                      )
+                    }
+                    aria-label="이전 대문 이미지"
+                    className="absolute left-3 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-background/85 text-foreground shadow-sm ring-1 ring-border transition-colors hover:bg-background"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      selectHeroImage(
+                        activeHeroImageIndex === heroImageUrls.length - 1
+                          ? 0
+                          : activeHeroImageIndex + 1,
+                        1
+                      )
+                    }
+                    aria-label="다음 대문 이미지"
+                    className="absolute right-3 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-background/85 text-foreground shadow-sm ring-1 ring-border transition-colors hover:bg-background"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                  <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-background/85 px-2 py-1 shadow-sm ring-1 ring-border">
+                    {heroImageUrls.map((url, index) => (
+                      <button
+                        key={`${url}-${index}`}
+                        type="button"
+                        onClick={() =>
+                          selectHeroImage(index, index > activeHeroImageIndex ? 1 : -1)
+                        }
+                        aria-label={`대문 이미지 ${index + 1} 보기`}
+                        aria-current={index === activeHeroImageIndex}
+                        className={`h-2 rounded-full transition-all ${
+                          index === activeHeroImageIndex
+                            ? "w-5 bg-primary"
+                            : "w-2 bg-muted-foreground/40 hover:bg-muted-foreground/70"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </>
+              ) : null}
+            </motion.div>
 
             <p className="text-[10px] text-muted-foreground">
               © {new Date().getFullYear()} RestaurantBook
@@ -181,9 +265,11 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
           {/* Right page — form */}
           <section className="relative flex h-full items-start justify-center p-6 sm:p-8 lg:px-10">
             <div className="w-full max-w-lg space-y-5">
-              <div className="space-y-1.5 text-center lg:text-left">
+              <div className="text-center lg:text-left">
                 <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-                <p className="text-sm text-muted-foreground">{subtitle}</p>
+                {subtitle ? (
+                  <p className="mt-1.5 text-sm text-muted-foreground">{subtitle}</p>
+                ) : null}
               </div>
               {children}
             </div>

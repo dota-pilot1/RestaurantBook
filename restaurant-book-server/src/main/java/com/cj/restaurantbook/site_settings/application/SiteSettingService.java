@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class SiteSettingService {
@@ -30,8 +32,11 @@ public class SiteSettingService {
     public SiteSettingResponse update(UpdateSiteSettingRequest request) {
         SiteSetting setting = repository.findById(SiteSetting.SINGLETON_ID)
                 .orElseGet(() -> repository.save(SiteSetting.createDefault()));
+        List<String> heroImageUrls = request.heroImageUrls() != null
+                ? request.heroImageUrls()
+                : (request.heroImageUrl() == null ? List.of() : List.of(request.heroImageUrl()));
         setting.update(
-                request.heroImageUrl(),
+                heroImageUrls,
                 request.introTitle(),
                 request.introSubtitle(),
                 request.headerNavVisible()

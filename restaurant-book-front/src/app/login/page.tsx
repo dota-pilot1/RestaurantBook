@@ -13,7 +13,7 @@ function LoginPageInner() {
   const nextPath = nextParam ?? undefined;
 
   return (
-    <AuthLayout title={t("signInTitle")} subtitle={t("signInSubtitle")}>
+    <AuthLayout title={t("signInTitle")}>
       <LoginForm nextPath={nextPath} />
     </AuthLayout>
   );

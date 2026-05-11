@@ -43,6 +43,14 @@ const itemSchema = z.object({
 const schema = z.object({
   name: z.string().min(1, "세트명을 입력해주세요.").max(100),
   description: z.string().max(500).optional(),
+  detailDescription: z.string().max(1000).optional(),
+  ingredients: z.string().max(1000).optional(),
+  allergens: z.string().max(500).optional(),
+  caloriesKcal: z.number().min(0, "0 이상으로 입력해주세요.").nullable(),
+  carbohydrateG: z.number().min(0, "0 이상으로 입력해주세요.").nullable(),
+  proteinG: z.number().min(0, "0 이상으로 입력해주세요.").nullable(),
+  fatG: z.number().min(0, "0 이상으로 입력해주세요.").nullable(),
+  sodiumMg: z.number().min(0, "0 이상으로 입력해주세요.").nullable(),
   price: z.number().min(0, "0 이상으로 입력해주세요."),
   imageUrl: z.string().nullable(),
   status: z.enum(["ACTIVE", "SOLD_OUT", "HIDDEN"]),
@@ -92,6 +100,14 @@ export function SaleMenuSetFormDialog({ open, saleMenuSet, onClose }: Props) {
     reset(saleMenuSet ? {
       name: saleMenuSet.name,
       description: saleMenuSet.description ?? "",
+      detailDescription: saleMenuSet.detailDescription ?? "",
+      ingredients: saleMenuSet.ingredients ?? "",
+      allergens: saleMenuSet.allergens ?? "",
+      caloriesKcal: saleMenuSet.caloriesKcal,
+      carbohydrateG: saleMenuSet.carbohydrateG,
+      proteinG: saleMenuSet.proteinG,
+      fatG: saleMenuSet.fatG,
+      sodiumMg: saleMenuSet.sodiumMg,
       price: saleMenuSet.price,
       imageUrl: saleMenuSet.imageUrl,
       status: saleMenuSet.status,
@@ -111,7 +127,15 @@ export function SaleMenuSetFormDialog({ open, saleMenuSet, onClose }: Props) {
     mutationFn: (values: FormValues) => {
       const body = {
         name: values.name,
-        description: values.description?.trim() ? values.description.trim() : null,
+        description: toNullableText(values.description),
+        detailDescription: toNullableText(values.detailDescription),
+        ingredients: toNullableText(values.ingredients),
+        allergens: toNullableText(values.allergens),
+        caloriesKcal: values.caloriesKcal,
+        carbohydrateG: values.carbohydrateG,
+        proteinG: values.proteinG,
+        fatG: values.fatG,
+        sodiumMg: values.sodiumMg,
         price: values.price,
         imageUrl: values.imageUrl,
         status: values.status as SaleMenuStatus,
@@ -198,6 +222,43 @@ export function SaleMenuSetFormDialog({ open, saleMenuSet, onClose }: Props) {
             <textarea {...register("description")} rows={3} className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
           </Field>
 
+          <section className="space-y-3 rounded-md border border-border p-3">
+            <h3 className="text-sm font-semibold">상세 정보</h3>
+            <Field label="상세 설명" error={errors.detailDescription?.message}>
+              <textarea {...register("detailDescription")} rows={3} className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
+            </Field>
+            <Field label="원재료" error={errors.ingredients?.message}>
+              <textarea {...register("ingredients")} rows={3} className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
+            </Field>
+            <Field label="알레르기 정보" error={errors.allergens?.message}>
+              <textarea {...register("allergens")} rows={2} className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
+            </Field>
+          </section>
+
+          <section className="space-y-3 rounded-md border border-border p-3">
+            <div>
+              <h3 className="text-sm font-semibold">영양 정보</h3>
+              <p className="mt-1 text-xs text-muted-foreground">세트 메뉴 기준 영양 정보를 직접 입력합니다.</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-5">
+              <Field label="열량(kcal)" error={errors.caloriesKcal?.message}>
+                <input type="number" min={0} {...register("caloriesKcal", optionalNumberRegister)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
+              </Field>
+              <Field label="탄수화물(g)" error={errors.carbohydrateG?.message}>
+                <input type="number" min={0} {...register("carbohydrateG", optionalNumberRegister)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
+              </Field>
+              <Field label="단백질(g)" error={errors.proteinG?.message}>
+                <input type="number" min={0} {...register("proteinG", optionalNumberRegister)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
+              </Field>
+              <Field label="지방(g)" error={errors.fatG?.message}>
+                <input type="number" min={0} {...register("fatG", optionalNumberRegister)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
+              </Field>
+              <Field label="나트륨(mg)" error={errors.sodiumMg?.message}>
+                <input type="number" min={0} {...register("sodiumMg", optionalNumberRegister)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
+              </Field>
+            </div>
+          </section>
+
           <Field label="대표 이미지" error={errors.imageUrl?.message}>
             <SaleMenuImageField value={imageUrl} onChange={(url) => setValue("imageUrl", url)} />
           </Field>
@@ -274,6 +335,14 @@ function defaultValues(): FormValues {
   return {
     name: "",
     description: "",
+    detailDescription: "",
+    ingredients: "",
+    allergens: "",
+    caloriesKcal: null,
+    carbohydrateG: null,
+    proteinG: null,
+    fatG: null,
+    sodiumMg: null,
     price: 0,
     imageUrl: null,
     status: "ACTIVE",
@@ -283,6 +352,14 @@ function defaultValues(): FormValues {
     displayOrder: 0,
     items: [{ saleMenuId: 0, quantity: 1, displayOrder: 0 }],
   };
+}
+
+const optionalNumberRegister = {
+  setValueAs: (value: string) => value === "" ? null : Number(value),
+};
+
+function toNullableText(value?: string) {
+  return value?.trim() ? value.trim() : null;
 }
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {

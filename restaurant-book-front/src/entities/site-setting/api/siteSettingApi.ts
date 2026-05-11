@@ -3,8 +3,9 @@ import type { SiteSetting } from "../model/types";
 
 export type UpdateSiteSettingBody = {
   heroImageUrl: string | null;
-  introTitle: string;
-  introSubtitle: string;
+  heroImageUrls: string[];
+  introTitle?: string;
+  introSubtitle?: string;
   headerNavVisible: boolean;
 };
 

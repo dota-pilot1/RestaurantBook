@@ -1,6 +1,7 @@
 export const nav = {
   guide: "User Guide",
   dashboard: "Dashboard",
+  adminConsole: "Admin Console",
   boards: "Boards",
   notice: "Notice",
   inquiry: "Inquiries",

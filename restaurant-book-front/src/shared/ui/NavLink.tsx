@@ -13,16 +13,16 @@ interface NavLinkProps {
 
 export function NavLink({ href, children, exact = false, className }: NavLinkProps) {
   const pathname = usePathname();
-  const isActive = exact ? pathname === href : pathname.startsWith(href);
+  const isActive = exact ? pathname === href || pathname === `${href}/` : pathname.startsWith(href);
 
   return (
     <Link
       href={href}
       className={cn(
-        "inline-flex h-9 items-center border-b-2 px-1 text-sm transition-colors",
+        "inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium transition-colors",
         isActive
-          ? "border-primary text-foreground font-medium"
-          : "border-transparent text-muted-foreground hover:text-foreground",
+          ? "border-slate-300 bg-slate-100 text-foreground dark:border-border dark:bg-muted"
+          : "border-transparent bg-transparent text-muted-foreground hover:bg-slate-100 hover:text-foreground dark:hover:bg-muted/70",
         className
       )}
     >

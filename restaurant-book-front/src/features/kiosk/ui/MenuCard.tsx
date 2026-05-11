@@ -1,4 +1,4 @@
-import { Check, ImageIcon, Minus, Plus } from "lucide-react";
+import { Check, ImageIcon, Info, Minus, Plus } from "lucide-react";
 import type { CustomerSaleProduct } from "@/entities/customer-sale-product/model/types";
 import { formatPrice } from "../lib/format";
 import { QuantityButton } from "./QuantityButton";
@@ -8,12 +8,14 @@ export function MenuCard({
   quantity,
   onMinus,
   onPlus,
+  onOpenDetail,
   onToggle,
 }: {
   product: CustomerSaleProduct;
   quantity: number;
   onMinus: () => void;
   onPlus: () => void;
+  onOpenDetail: () => void;
   onToggle: () => void;
 }) {
   const soldOut = product.status === "SOLD_OUT";
@@ -64,8 +66,22 @@ export function MenuCard({
             <ImageIcon className="h-8 w-8" />
           </div>
         )}
+        {quantity === 0 && (
+          <button
+            type="button"
+            aria-label={`${product.name} 상세 정보 보기`}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onOpenDetail();
+            }}
+            className="absolute right-2 top-2 z-30 flex h-8 w-8 items-center justify-center rounded-full border border-white/70 bg-white/95 text-zinc-900 shadow-md transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Info className="h-4 w-4" />
+          </button>
+        )}
         {soldOut && (
-          <span className="absolute right-3 top-3 rounded-md bg-background/95 px-2 py-1 text-xs font-bold text-destructive shadow-sm">
+          <span className="absolute left-3 top-3 rounded-md bg-background/95 px-2 py-1 text-xs font-bold text-destructive shadow-sm">
             품절
           </span>
         )}

@@ -11,6 +11,20 @@ export type CustomerSaleProductComponent = {
   quantity: number;
 };
 
+export type CustomerSaleProductDetail = {
+  description: string | null;
+  ingredients: string | null;
+  allergens: string | null;
+};
+
+export type CustomerSaleProductNutrition = {
+  caloriesKcal: number | null;
+  carbohydrateG: number | null;
+  proteinG: number | null;
+  fatG: number | null;
+  sodiumMg: number | null;
+};
+
 export type CustomerSaleProduct = {
   type: SaleProductType;
   id: number;
@@ -22,6 +36,8 @@ export type CustomerSaleProduct = {
   status: "ACTIVE" | "SOLD_OUT" | "HIDDEN";
   displayOrder: number;
   components: CustomerSaleProductComponent[];
+  detail: CustomerSaleProductDetail | null;
+  nutrition: CustomerSaleProductNutrition | null;
 };
 
 export type CustomerSaleProductFilters = {

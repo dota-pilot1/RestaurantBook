@@ -1,6 +1,7 @@
 export const nav = {
   guide: "用户指南",
   dashboard: "仪表板",
+  adminConsole: "管理员控制台",
   boards: "公告板",
   notice: "公告",
   inquiry: "咨询公告板",

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/entities/user/model/authStore";
+import { getRoleHomePath } from "@/entities/user/lib/roleRoutes";
 
 type Props = {
   roles: string[];
@@ -21,7 +22,7 @@ export function RequireRole({ roles, children }: Props) {
       return;
     }
     if (status === "authenticated" && user && !roles.includes(user.role.code)) {
-      router.replace("/unauthorized");
+      router.replace(getRoleHomePath(user.role.code));
     }
   }, [status, user, roles, router, pathname]);
 

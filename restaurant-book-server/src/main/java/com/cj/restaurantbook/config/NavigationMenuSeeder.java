@@ -34,14 +34,14 @@ public class NavigationMenuSeeder implements ApplicationRunner {
         normalizeLegacyNavigationMenuCodes();
 
         List<NavigationMenuDef> defs = List.of(
-                new NavigationMenuDef("DASHBOARD",             null,    "대시보드",      "nav.dashboard",        "/dashboard",        "LayoutDashboard", null,                    0),
+                new NavigationMenuDef("DASHBOARD",             null,    "관리자 콘솔",   "nav.adminConsole",    "/dashboard",        "LayoutDashboard", RoleSeeder.ROLE_ADMIN,   0),
                 new NavigationMenuDef("BOARDS",                null,    "게시판",        "nav.boards",           null,                "MessageSquare",   null,                    1),
                 new NavigationMenuDef("BOARD_NOTICE",          "BOARDS", "공지사항",     "nav.notice",           "/boards/notice",    "Megaphone",       null,                    0),
                 new NavigationMenuDef("BOARD_INQUIRY",         "BOARDS", "문의 게시판",  "nav.inquiry",          "/boards/inquiry",   "MessageSquare",   null,                    1),
                 new NavigationMenuDef("ADMIN",                 null,    "관리",          "nav.admin",            null,                "Settings",        RoleSeeder.ROLE_ADMIN,   2),
 
                 new NavigationMenuDef("ADMIN_OPERATIONS",      "ADMIN", "운영 관리",     null,                   null,                "ClipboardList",   RoleSeeder.ROLE_ADMIN,   0),
-                new NavigationMenuDef("ADMIN_DASHBOARD",       "ADMIN_OPERATIONS", "대시보드", "nav.dashboard",    "/dashboard",        "LayoutDashboard", RoleSeeder.ROLE_ADMIN,   0),
+                new NavigationMenuDef("ADMIN_DASHBOARD",       "ADMIN_OPERATIONS", "관리자 콘솔", "nav.adminConsole", "/dashboard",     "LayoutDashboard", RoleSeeder.ROLE_ADMIN,   0),
                 new NavigationMenuDef("ADMIN_ORDERS",          "ADMIN_OPERATIONS", "주문 관리", null,              "/orders",           "ClipboardList",   RoleSeeder.ROLE_ADMIN,   1),
                 new NavigationMenuDef("ADMIN_KITCHEN",         "ADMIN_OPERATIONS", "주방 현황", null,              "/kitchen-board",    "Utensils",        RoleSeeder.ROLE_ADMIN,   2),
                 new NavigationMenuDef("ADMIN_SALES",           "ADMIN_OPERATIONS", "매출 관리", null,              "/sales",            "BarChart3",       RoleSeeder.ROLE_ADMIN,   3),

@@ -15,6 +15,14 @@ export type SaleMenuSet = {
   id: number;
   name: string;
   description: string | null;
+  detailDescription: string | null;
+  ingredients: string | null;
+  allergens: string | null;
+  caloriesKcal: number | null;
+  carbohydrateG: number | null;
+  proteinG: number | null;
+  fatG: number | null;
+  sodiumMg: number | null;
   price: number;
   imageUrl: string | null;
   status: SaleMenuStatus;

@@ -22,6 +22,7 @@ export function KioskMobileView({ kiosk }: { kiosk: KioskOrderModel }) {
     isError,
     isLoading,
     openPaymentDialog,
+    openProductDetail,
     openStaffCallDialog,
     orderType,
     payableOrders,
@@ -170,6 +171,7 @@ export function KioskMobileView({ kiosk }: { kiosk: KioskOrderModel }) {
                       quantity={cart[activeProductKey]?.quantity ?? 0}
                       onMinus={() => updateQuantity(activeProduct, -1)}
                       onPlus={() => updateQuantity(activeProduct, 1)}
+                      onOpenDetail={() => openProductDetail(activeProduct)}
                       onToggle={() => toggleProductSelection(activeProduct)}
                     />
                   </motion.div>

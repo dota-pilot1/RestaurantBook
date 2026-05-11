@@ -8,6 +8,7 @@ import { Switch } from "@/shared/ui/Switch";
 import { formatTime } from "../lib/format";
 import { staffCallTypeLabel } from "../model/constants";
 import type { KioskOrderModel } from "../model/useKioskOrder";
+import { MenuDetailDialog } from "./MenuDetailDialog";
 import { CanceledOrderSummary, OrderConfirmSummary, OrderNoticeSummary } from "./OrderSummaries";
 import { PaymentModePicker } from "./PaymentModePicker";
 import { PaymentReadySummary } from "./PaymentReadySummary";
@@ -25,6 +26,8 @@ export function KioskDialogs({ kiosk }: { kiosk: KioskOrderModel }) {
     confirmSettingsPassword,
     createOrderMutation,
     createStaffCallMutation,
+    closeProductDetail,
+    detailProduct,
     draftHeaderNavVisible,
     orderConfirmOpen,
     orderTypeLabel,
@@ -360,6 +363,7 @@ export function KioskDialogs({ kiosk }: { kiosk: KioskOrderModel }) {
           </div>
         </div>
       ) : null}
+      <MenuDetailDialog product={detailProduct} onClose={closeProductDetail} />
     </>
   );
 }

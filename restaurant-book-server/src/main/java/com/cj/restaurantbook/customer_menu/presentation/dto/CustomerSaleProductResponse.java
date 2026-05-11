@@ -19,7 +19,9 @@ public record CustomerSaleProductResponse(
         String imageUrl,
         SaleMenuStatus status,
         int displayOrder,
-        List<CustomerSaleProductComponentResponse> components
+        List<CustomerSaleProductComponentResponse> components,
+        CustomerSaleProductDetailResponse detail,
+        CustomerSaleProductNutritionResponse nutrition
 ) {
     public static CustomerSaleProductResponse fromSaleMenu(SaleMenu menu) {
         return new CustomerSaleProductResponse(
@@ -32,7 +34,19 @@ public record CustomerSaleProductResponse(
                 menu.getImageUrl(),
                 menu.getStatus(),
                 menu.getDisplayOrder(),
-                List.of()
+                List.of(),
+                new CustomerSaleProductDetailResponse(
+                        menu.getDetailDescription(),
+                        menu.getIngredients(),
+                        menu.getAllergens()
+                ),
+                new CustomerSaleProductNutritionResponse(
+                        menu.getCaloriesKcal(),
+                        menu.getCarbohydrateG(),
+                        menu.getProteinG(),
+                        menu.getFatG(),
+                        menu.getSodiumMg()
+                )
         );
     }
 
@@ -55,7 +69,19 @@ public record CustomerSaleProductResponse(
                 set.getImageUrl(),
                 set.getStatus(),
                 set.getDisplayOrder(),
-                components
+                components,
+                new CustomerSaleProductDetailResponse(
+                        set.getDetailDescription(),
+                        set.getIngredients(),
+                        set.getAllergens()
+                ),
+                new CustomerSaleProductNutritionResponse(
+                        set.getCaloriesKcal(),
+                        set.getCarbohydrateG(),
+                        set.getProteinG(),
+                        set.getFatG(),
+                        set.getSodiumMg()
+                )
         );
     }
 }
