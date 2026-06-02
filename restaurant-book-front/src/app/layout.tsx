@@ -5,6 +5,7 @@ import "./globals.css";
 import { QueryProvider } from "./QueryProvider";
 import { AuthInitializer } from "./AuthInitializer";
 import { Header } from "@/widgets/header";
+import { Footer } from "@/widgets/footer";
 import { ThemeInitializer } from "@/shared/ui/theme/ThemeInitializer";
 import { I18nProvider } from "@/shared/i18n/I18nProvider";
 
@@ -55,6 +56,7 @@ export default function RootLayout({
             <AuthInitializer>
               <Header />
               {children}
+              <Footer />
             </AuthInitializer>
           </QueryProvider>
         </I18nProvider>
